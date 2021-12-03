@@ -1,0 +1,4 @@
+defaults:
+  - data: toy
+  - model: toy
+  - train: toy
