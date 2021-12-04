@@ -2,3 +2,5 @@ defaults:
   - data: toy
   - model: toy
   - train: toy
+
+name: "toy_model"

@@ -3,5 +3,6 @@ auto_lr: True
 auto_batch: False
 batch_size: 64
 fast_dev_run: False
+gpus: -1
 lr: 0.0001
 num_workers: 2

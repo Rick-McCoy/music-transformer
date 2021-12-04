@@ -14,7 +14,7 @@ def main(cfg: DictConfig = None) -> None:
     model = SimpleModel(cfg)
     datamodule = SimpleDataModule(cfg)
     checkpoint = ModelCheckpoint(
-        dirpath="checkpoints",
+        dirpath=to_absolute_path("checkpoints"),
         filename="{epoch}-{val_loss:.3f}",
         monitor="val_loss",
         save_top_k=3,
@@ -23,7 +23,7 @@ def main(cfg: DictConfig = None) -> None:
     )
     monitor = DeviceStatsMonitor()
     logger = TensorBoardLogger(save_dir=to_absolute_path("log"),
-                               name="toy_model",
+                               name=cfg.name,
                                log_graph=True)
     trainer = Trainer(
         accumulate_grad_batches=cfg.train.acc,
@@ -34,7 +34,7 @@ def main(cfg: DictConfig = None) -> None:
         detect_anomaly=True,
         enable_checkpointing=True,
         fast_dev_run=cfg.train.fast_dev_run,
-        gpus=-1,
+        gpus=cfg.train.gpus,
         logger=[logger],
         num_sanity_val_steps=2,
     )
