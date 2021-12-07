@@ -125,7 +125,9 @@ def main():
         random.shuffle(path_list)
         for path in tqdm(path_list):
             ticks.extend(
-                read_midi(mido.MidiFile(filename=path.strip(), clip=True))[0])
+                read_midi(
+                    mido.MidiFile(filename=to_absolute_path(path.strip()),
+                                  clip=True))[0])
             if time() - start > 100:
                 # plt.hist(ticks,
                 #          bins=np.exp(np.linspace(np.log(1e3), np.log(1e5),

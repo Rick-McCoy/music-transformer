@@ -2,6 +2,7 @@ import os
 import random
 from typing import List, Optional
 
+from hydra.utils import to_absolute_path
 from mido.midifiles.midifiles import MidiFile
 import numpy as np
 from omegaconf.dictconfig import DictConfig
@@ -20,19 +21,13 @@ class MusicDataset(Dataset):
         self.path_list = path_list
 
     def __getitem__(self, index: int):
-        path = os.path.join(self.cfg.data.data_dir,
-                            self.path_list[index].strip())
+        path = to_absolute_path(
+            os.path.join(self.cfg.data.data_dir,
+                         self.path_list[index].strip()))
         ticks, programs, _, pitches, velocities = read_midi(
             MidiFile(filename=path, clip=True))
 
-        assert len(ticks.shape) == 1
-        assert len(programs.shape) == 1
-        assert len(pitches.shape) == 1
-        assert len(velocities.shape) == 1
-
-        assert ticks.shape[0] == programs.shape[0]
-        assert ticks.shape[0] == pitches.shape[0]
-        assert ticks.shape[0] == velocities.shape[0]
+        ticks = np.minimum(ticks, self.cfg.model.num_tick - 1)
 
         orig_len = ticks.shape[0]
         if orig_len >= self.length:
@@ -64,7 +59,8 @@ class MusicDataModule(LightningDataModule):
         prepare_data(self.cfg.data.data_dir, self.cfg.data.tar_dir)
 
     def setup(self, stage: Optional[str] = None) -> None:
-        file_path = os.path.join(self.cfg.data.tar_dir, "midi.txt")
+        file_path = to_absolute_path(
+            os.path.join(self.cfg.data.tar_dir, "midi.txt"))
         with open(file_path, mode="r", encoding="utf-8") as file:
             path_list = file.readlines()
         random.shuffle(path_list)
