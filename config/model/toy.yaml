@@ -1,0 +1,6 @@
+kernel_size: 3
+input_channels: 1
+hidden_channels: 16
+h: 28
+w: 28
+num_class: 10
