@@ -10,3 +10,8 @@ torch==1.10.0+cu113
 ```
 
 The codebase was formatted with PyLint & [yapf](https://github.com/google/yapf).
+
+```
+pylint==2.12.2
+yapf==0.31.0
+```
