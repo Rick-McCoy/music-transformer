@@ -5,14 +5,14 @@ from pytorch_lightning.trainer import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import DeviceStatsMonitor, ModelCheckpoint
 
-from data.datamodule import SimpleDataModule
-from model.model import SimpleModel
+from data.datamodule import MusicDataModule
+from model.model import MusicModel
 
 
 @hydra.main(config_path="config", config_name="config")
 def main(cfg: DictConfig = None) -> None:
-    model = SimpleModel(cfg)
-    datamodule = SimpleDataModule(cfg)
+    model = MusicModel(cfg)
+    datamodule = MusicDataModule(cfg)
     callbacks = []
     if cfg.train.checkpoint:
         callbacks.append(

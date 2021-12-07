@@ -1,0 +1,10 @@
+d_model: 128
+data_len: 256
+dropout: 0.1
+ff: 128
+nhead: 2
+num_layers: 2
+num_tick: 1024
+num_pitch: 128
+num_program: 128
+num_velocity: 128

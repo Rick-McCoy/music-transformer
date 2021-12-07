@@ -1,7 +1,7 @@
 defaults:
   - _self_
-  - data: toy
-  - model: toy
-  - train: toy
+  - data: music
+  - model: music
+  - train: music
 
-name: "toy_model"
+name: music_model

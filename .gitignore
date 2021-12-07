@@ -142,3 +142,5 @@ MNIST/
 log/
 outputs/
 .vscode/
+data/midi
+data/*.tar
