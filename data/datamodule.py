@@ -21,9 +21,9 @@ class MusicDataset(Dataset):
         self.path_list = path_list
 
     def __getitem__(self, index: int):
+        data_dir = os.path.join(*self.cfg.data.data_dir)
         path = to_absolute_path(
-            os.path.join(self.cfg.data.data_dir,
-                         self.path_list[index].strip()))
+            os.path.join(data_dir, self.path_list[index].strip()))
         ticks, programs, _, pitches, velocities = read_midi(
             MidiFile(filename=path, clip=True))
 
@@ -56,11 +56,13 @@ class MusicDataModule(LightningDataModule):
         self.test_dataset: Optional[Dataset] = None
 
     def prepare_data(self) -> None:
-        prepare_data(self.cfg.data.data_dir, self.cfg.data.tar_dir)
+        data_dir = os.path.join(*self.cfg.data.data_dir)
+        file_dir = os.path.join(*self.cfg.data.file_dir)
+        prepare_data(data_dir, file_dir)
 
     def setup(self, stage: Optional[str] = None) -> None:
-        file_path = to_absolute_path(
-            os.path.join(self.cfg.data.tar_dir, "midi.txt"))
+        file_dir = os.path.join(*self.cfg.data.file_dir)
+        file_path = to_absolute_path(os.path.join(file_dir, "midi.txt"))
         with open(file_path, mode="r", encoding="utf-8") as file:
             path_list = file.readlines()
         random.shuffle(path_list)

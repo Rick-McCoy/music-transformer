@@ -117,9 +117,10 @@ def main():
         start = time()
         ticks = []
         cfg = compose(config_name="config")
-        prepare_data(cfg.data.data_dir, cfg.data.tar_dir)
-        file_path = to_absolute_path(os.path.join(cfg.data.tar_dir,
-                                                  "midi.txt"))
+        data_dir = os.path.join(*cfg.data.data_dir)
+        file_dir = os.path.join(*cfg.data.file_dir)
+        prepare_data(data_dir, file_dir)
+        file_path = to_absolute_path(os.path.join(file_dir, "midi.txt"))
         with open(file_path, mode="r", encoding="utf-8") as file:
             path_list = file.readlines()
         random.shuffle(path_list)
