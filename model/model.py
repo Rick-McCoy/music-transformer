@@ -48,7 +48,7 @@ class MusicModel(LightningModule):
         pitch_acc = self.acc(pitch_out, pitch[:, 1:])
         program_acc = self.acc(program_out, program[:, 1:])
         velocity_acc = self.acc(velocity_out, velocity[:, 1:])
-        acc = tick_acc + pitch_acc + program_acc + velocity_acc
+        acc = torch.mean(tick_acc + pitch_acc + program_acc + velocity_acc)
         self.log("train_tick_loss", tick_loss)
         self.log("train_tick_acc", tick_acc)
         self.log("train_pitch_loss", pitch_loss)
@@ -75,7 +75,7 @@ class MusicModel(LightningModule):
         pitch_acc = self.acc(pitch_out, pitch[:, 1:])
         program_acc = self.acc(program_out, program[:, 1:])
         velocity_acc = self.acc(velocity_out, velocity[:, 1:])
-        acc = tick_acc + pitch_acc + program_acc + velocity_acc
+        acc = torch.mean(tick_acc + pitch_acc + program_acc + velocity_acc)
         self.log("val_tick_loss", tick_loss)
         self.log("val_tick_acc", tick_acc)
         self.log("val_pitch_loss", pitch_loss)
@@ -140,7 +140,7 @@ class MusicModel(LightningModule):
         pitch_acc = self.acc(pitch_out, pitch[:, 1:])
         program_acc = self.acc(program_out, program[:, 1:])
         velocity_acc = self.acc(velocity_out, velocity[:, 1:])
-        acc = tick_acc + pitch_acc + program_acc + velocity_acc
+        acc = torch.mean(tick_acc + pitch_acc + program_acc + velocity_acc)
         self.log("test_tick_loss", tick_loss)
         self.log("test_tick_acc", tick_acc)
         self.log("test_pitch_loss", pitch_loss)
