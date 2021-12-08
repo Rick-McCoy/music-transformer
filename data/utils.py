@@ -103,11 +103,12 @@ def read_midi(
 
     notes.sort(key=attrgetter("tick", "program", "type", "pitch", "velocity"))
 
-    ticks = np.diff([0] + [note.tick for note in notes])
-    programs = np.array([note.program for note in notes])
-    types = np.array([note.type for note in notes])
-    pitches = np.array([note.pitch for note in notes])
-    velocities = np.array([note.velocity for note in notes])
+    ticks = np.diff(
+        np.array([0] + [note.tick for note in notes], dtype=np.int64))
+    programs = np.array([note.program for note in notes], dtype=np.int64)
+    types = np.array([note.type for note in notes], dtype=np.int64)
+    pitches = np.array([note.pitch for note in notes], dtype=np.int64)
+    velocities = np.array([note.velocity for note in notes], dtype=np.int64)
 
     return ticks, programs, types, pitches, velocities
 
@@ -125,10 +126,9 @@ def main():
             path_list = file.readlines()
         random.shuffle(path_list)
         for path in tqdm(path_list):
+            filename = to_absolute_path(os.path.join(data_dir, path.strip()))
             ticks.extend(
-                read_midi(
-                    mido.MidiFile(filename=to_absolute_path(path.strip()),
-                                  clip=True))[0])
+                read_midi(mido.MidiFile(filename=filename, clip=True))[0])
             if time() - start > 100:
                 # plt.hist(ticks,
                 #          bins=np.exp(np.linspace(np.log(1e3), np.log(1e5),
