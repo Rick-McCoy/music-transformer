@@ -26,8 +26,8 @@ class TestDataUtils(unittest.TestCase):
     def test_read_midi(self):
         self.assertTrue(self.path_list)
         for path in self.path_list[:10]:
-            data_dir = os.path.join(*self.cfg.data.data_dir)
-            filename = to_absolute_path(os.path.join(data_dir, path.strip()))
+            filename = to_absolute_path(
+                os.path.join(*self.cfg.data.data_dir, path.strip()))
             ticks, programs, types, pitches, velocities = read_midi(
                 MidiFile(filename=filename, clip=True))
             self.assertEqual(ticks.shape, programs.shape)

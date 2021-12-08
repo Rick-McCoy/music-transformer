@@ -9,5 +9,8 @@ class TestMain(unittest.TestCase):
     def test_fast_dev(self):
         with initialize(config_path="../config"):
             cfg = compose(config_name="config",
-                          overrides=["train.fast_dev_run=True"])
+                          overrides=[
+                              "train.fast_dev_run=True", "train.batch_size=2",
+                              "train.num_workers=2"
+                          ])
             main(cfg)
