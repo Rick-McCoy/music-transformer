@@ -17,5 +17,5 @@ class TestAccuracy(unittest.TestCase):
         logits = torch.arange(100).reshape(10, 10)
         target_1 = torch.full((10, ), 9)
         target_2 = torch.arange(10)
-        self.assertAlmostEqual(self.acc(logits, target_1), 1)
-        self.assertAlmostEqual(self.acc(logits, target_2), 0.1)
+        self.assertAlmostEqual(self.acc(logits, target_1).numpy(), 1)
+        self.assertAlmostEqual(self.acc(logits, target_2).numpy(), 0.1)
