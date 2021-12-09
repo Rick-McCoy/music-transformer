@@ -13,7 +13,7 @@ class TestClassifier(unittest.TestCase):
             self.cfg = cfg
             self.classifier = SimpleClassifier(cfg)
 
-    def test_accuracy(self):
+    def test_classifier(self):
         data = torch.zeros(8, self.cfg.model.input_channels, self.cfg.model.h,
                            self.cfg.model.w)
         output = self.classifier(data)
