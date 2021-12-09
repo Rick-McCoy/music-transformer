@@ -13,15 +13,19 @@ from model.model import SimpleModel
 def main(cfg: DictConfig = None) -> None:
     model = SimpleModel(cfg)
     datamodule = SimpleDataModule(cfg)
-    checkpoint = ModelCheckpoint(
-        dirpath=to_absolute_path("checkpoints"),
-        filename="{epoch}-{val_loss:.3f}",
-        monitor="val_loss",
-        save_top_k=3,
-        mode="min",
-        save_weights_only=True,
-    )
-    monitor = DeviceStatsMonitor()
+    callbacks = []
+    if cfg.train.checkpoint:
+        callbacks.append(
+            ModelCheckpoint(
+                dirpath=to_absolute_path("checkpoints"),
+                filename="{epoch}-{val_loss:.3f}",
+                monitor="val_loss",
+                save_top_k=3,
+                mode="min",
+                save_weights_only=True,
+            ))
+    if cfg.train.monitor:
+        callbacks.append(DeviceStatsMonitor())
     logger = TensorBoardLogger(save_dir=to_absolute_path("log"),
                                name=cfg.name,
                                log_graph=True)
@@ -30,7 +34,7 @@ def main(cfg: DictConfig = None) -> None:
         auto_lr_find=cfg.train.auto_lr,
         auto_scale_batch_size=cfg.train.auto_batch,
         auto_select_gpus=True,
-        callbacks=[checkpoint, monitor],
+        callbacks=callbacks,
         detect_anomaly=True,
         enable_checkpointing=True,
         fast_dev_run=cfg.train.fast_dev_run,

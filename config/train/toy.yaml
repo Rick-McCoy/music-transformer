@@ -2,7 +2,9 @@ acc: 1
 auto_lr: True
 auto_batch: False
 batch_size: 64
+checkpoint: True
 fast_dev_run: False
 gpus: -1
 lr: 0.0001
+monitor: False
 num_workers: 2
