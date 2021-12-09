@@ -43,11 +43,12 @@ class PositionalEncoding(nn.Module):
         """
 
         with torch.no_grad():
-            positional_encoding = torch.zeros_like(embedding)
             position = time.unsqueeze(-1)
             div_term = torch.exp(self.arange *
                                  (-math.log(10000.0) / self.embed_dim))
-            positional_encoding[:, :, 0::2] = torch.sin(position * div_term)
-            positional_encoding[:, :, 1::2] = torch.cos(position * div_term)
+            term = position * div_term
+            positional_encoding = torch.stack(
+                [torch.sin(term), torch.cos(term)],
+                dim=-1).reshape_as(embedding)
 
         return self.dropout(embedding + positional_encoding)
