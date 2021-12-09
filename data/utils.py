@@ -1,7 +1,6 @@
-import bisect
 from enum import IntEnum
 import glob
-from operator import attrgetter
+from operator import attrgetter, itemgetter
 import os
 import pathlib
 import random
@@ -10,7 +9,7 @@ from typing import List, Tuple
 
 from hydra import initialize, compose
 from hydra.utils import to_absolute_path
-import mido
+from mido import MidiFile
 from mido.midifiles.meta import KeySignatureError
 import numpy as np
 from numpy import ndarray
@@ -40,12 +39,11 @@ class MessageType(IntEnum):
 
 
 class Note:
-    def __init__(self, message_type, tick, pitch, velocity, channel, program):
+    def __init__(self, message_type, tick, pitch, velocity, program):
         self.type: MessageType = message_type
         self.tick: int = tick
         self.pitch: int = pitch
         self.velocity: int = velocity
-        self.channel: int = channel
         self.program: int = program
 
 
@@ -58,7 +56,7 @@ def prepare_data(data_dir: str, file_dir: str) -> None:
             for path in tqdm(glob.iglob(data_path, recursive=True)):
                 relative_path = pathlib.Path(path).relative_to(data_dir)
                 try:
-                    mido.MidiFile(path, clip=True)
+                    MidiFile(path, clip=True)
                     file.write(relative_path + "\n")
                 except (EOFError, KeySignatureError, IndexError) as exception:
                     tqdm.write(f"{type(exception).__name__}: {relative_path}")
@@ -66,40 +64,37 @@ def prepare_data(data_dir: str, file_dir: str) -> None:
 
 
 def read_midi(
-    midi_file: mido.MidiFile
+        midi_file: MidiFile
 ) -> Tuple[ndarray, ndarray, ndarray, ndarray, ndarray]:
     notes: List[Note] = []
-    channel_program_log = [[(0, 0)] for _ in range(17)]
+    messages = []
+    programs = np.zeros(16, dtype=np.int64)
+
     for track in midi_file.tracks:
-        track: mido.MidiTrack
         cur_tick = 0
         for message in track:
-            message: mido.Message
             cur_tick += message.time
-            if message.type == "note_on" and message.velocity > 0:
-                notes.append(
-                    Note(MessageType.NOTE_ON, cur_tick, message.note,
-                         message.velocity, message.channel, -1))
-            elif message.type == "note_off" or message.type == "note_on" and message.velocity == 0:
-                notes.append(
-                    Note(MessageType.NOTE_OFF, cur_tick, message.note, 0,
-                         message.channel, -1))
-            elif message.type == "program_change":
-                channel_program_log[message.channel].append(
-                    (cur_tick, message.program))
+            if hasattr(message, "channel") and message.channel == 9:
+                continue
+            messages.append((cur_tick, message))
 
-    _ = [i.sort() for i in channel_program_log]
-    channel_program_history = [
-        list(map(list, zip(*i))) for i in channel_program_log
-    ]
+    messages.sort(key=itemgetter(0))
+    note_velocity = np.zeros((128, 128), dtype=np.int64)
 
-    for history in channel_program_history:
-        history[0] = history[0][1:]
-
-    for note in notes:
-        tick_list = channel_program_history[note.channel][0]
-        program_list = channel_program_history[note.channel][1]
-        note.program = program_list[bisect.bisect(tick_list, note.tick)]
+    for tick, message in messages:
+        if message.type == "note_on" and message.velocity > 0:
+            program = programs[message.channel]
+            notes.append(
+                Note(MessageType.NOTE_ON, tick, message.note, message.velocity,
+                     program))
+            note_velocity[program, message.note] = message.velocity
+        elif message.type == "note_off" or message.type == "note_on" and message.velocity == 0:
+            program = programs[message.channel]
+            notes.append(
+                Note(MessageType.NOTE_ON, tick, message.note,
+                     note_velocity[program, message.note], program))
+        elif message.type == "program_change":
+            programs[message.channel] = message.program
 
     notes.sort(key=attrgetter("tick", "program", "type", "pitch", "velocity"))
 
@@ -127,8 +122,7 @@ def main():
         random.shuffle(path_list)
         for path in tqdm(path_list):
             filename = to_absolute_path(os.path.join(data_dir, path.strip()))
-            ticks.extend(
-                read_midi(mido.MidiFile(filename=filename, clip=True))[0])
+            ticks.extend(read_midi(MidiFile(filename=filename, clip=True))[0])
             if time() - start > 100:
                 # plt.hist(ticks,
                 #          bins=np.exp(np.linspace(np.log(1e3), np.log(1e5),
