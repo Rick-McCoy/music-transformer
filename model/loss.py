@@ -9,4 +9,6 @@ class SimpleLoss(nn.Module):
         self.cross_entropy = nn.CrossEntropyLoss()
 
     def forward(self, logit: Tensor, target: Tensor) -> Tensor:
+        if target.dim() > 1:
+            logit = logit.permute([0, -1] + list(range(1, logit.dim() - 1)))
         return self.cross_entropy(logit, target)
