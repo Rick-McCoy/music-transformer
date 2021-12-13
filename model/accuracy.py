@@ -1,11 +1,14 @@
 from omegaconf import DictConfig
 import torch
-from torch import Tensor
+from torch import nn, Tensor
+from torchmetrics import Accuracy
 
 
-class SimpleAccuracy:
+class SimpleAccuracy(nn.Module):
     def __init__(self, cfg: DictConfig) -> None:
+        super().__init__()
         self.cfg = cfg
+        self.accuracy = Accuracy(top_k=1)
 
-    def __call__(self, logit: Tensor, target: Tensor) -> Tensor:
-        return torch.mean((torch.argmax(logit, dim=-1) == target).float())
+    def forward(self, logit: Tensor, target: Tensor) -> Tensor:
+        return self.accuracy(logit, target)
