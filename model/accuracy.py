@@ -1,5 +1,4 @@
 from omegaconf import DictConfig
-import torch
 from torch import nn, Tensor
 from torchmetrics import Accuracy
 

@@ -21,13 +21,13 @@ class TestTransformer(unittest.TestCase):
         tick_out, pitch_out, program_out, velocity_out = self.transformer(
             tick, pitch, program, velocity)
         self.assertEqual(tick_out.size(),
-                         (8, self.cfg.model.data_len, self.cfg.model.num_tick))
+                         (8, self.cfg.model.num_tick, self.cfg.model.data_len))
         self.assertEqual(
             pitch_out.size(),
-            (8, self.cfg.model.data_len, self.cfg.model.num_pitch))
+            (8, self.cfg.model.num_pitch, self.cfg.model.data_len))
         self.assertEqual(
             program_out.size(),
-            (8, self.cfg.model.data_len, self.cfg.model.num_program))
+            (8, self.cfg.model.num_program, self.cfg.model.data_len))
         self.assertEqual(
             velocity_out.size(),
-            (8, self.cfg.model.data_len, self.cfg.model.num_velocity))
+            (8, self.cfg.model.num_velocity, self.cfg.model.data_len))

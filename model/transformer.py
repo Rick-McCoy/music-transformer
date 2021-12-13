@@ -61,4 +61,12 @@ class Transformer(nn.Module):
             self.relu(self.transformers[2](projected, mask=self.mask)))
         velocity_out = self.velocity_linear(
             self.relu(self.transformers[3](projected, mask=self.mask)))
+        tick_out = tick_out.permute([0, -1] +
+                                    list(range(1, tick_out.ndim - 1)))
+        pitch_out = pitch_out.permute([0, -1] +
+                                      list(range(1, tick_out.ndim - 1)))
+        program_out = program_out.permute([0, -1] +
+                                          list(range(1, tick_out.ndim - 1)))
+        velocity_out = velocity_out.permute([0, -1] +
+                                            list(range(1, tick_out.ndim - 1)))
         return tick_out, pitch_out, program_out, velocity_out

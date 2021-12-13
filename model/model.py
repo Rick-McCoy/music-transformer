@@ -67,7 +67,7 @@ class MusicModel(LightningModule):
 
     def validation_step(self, batch: List[Tensor], *args, **kwargs) -> Tensor:
         tick, pitch, program, velocity = batch
-        tick_out, pitch_out, program_out, velocity_out = self.transformer(
+        tick_out, pitch_out, program_out, velocity_out = self(
             tick[:, :-1], pitch[:, :-1], program[:, :-1], velocity[:, :-1])
         tick_loss = self.loss(tick_out, tick[:, 1:])
         pitch_loss = self.loss(pitch_out, pitch[:, 1:])
@@ -93,7 +93,7 @@ class MusicModel(LightningModule):
 
     def test_step(self, batch: List[Tensor], *args, **kwargs) -> Tensor:
         tick, pitch, program, velocity = batch
-        tick_out, pitch_out, program_out, velocity_out = self.transformer(
+        tick_out, pitch_out, program_out, velocity_out = self(
             tick[:, :-1], pitch[:, :-1], program[:, :-1], velocity[:, :-1])
         tick_loss = self.loss(tick_out, tick[:, 1:])
         pitch_loss = self.loss(pitch_out, pitch[:, 1:])
