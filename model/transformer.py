@@ -16,7 +16,7 @@ class Transformer(nn.Module):
         self.common_transformer = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(d_model=cfg.model.d_model * 3,
                                        nhead=cfg.model.nhead,
-                                       dim_feedforward=cfg.model.ff,
+                                       dim_feedforward=cfg.model.ff * 3,
                                        dropout=cfg.model.dropout,
                                        batch_first=True),
             num_layers=cfg.model.num_layers,
