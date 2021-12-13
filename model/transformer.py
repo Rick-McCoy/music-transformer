@@ -1,8 +1,8 @@
 from typing import Tuple
-from torch import nn, Tensor
-import torch
-from torch.nn import ModuleList
+
 from omegaconf import DictConfig
+import torch
+from torch import nn, Tensor
 
 from model.embedding import Embedding
 from model.pos_encoding import PositionalEncoding
@@ -23,7 +23,7 @@ class Transformer(nn.Module):
             norm=nn.LayerNorm((cfg.model.d_model * 3, )))
         self.project = nn.Linear(in_features=cfg.model.d_model * 3,
                                  out_features=cfg.model.d_model)
-        self.transformers = ModuleList([
+        self.transformers = nn.ModuleList([
             nn.TransformerEncoder(
                 nn.TransformerEncoderLayer(d_model=cfg.model.d_model,
                                            nhead=cfg.model.nhead,

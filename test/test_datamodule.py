@@ -1,8 +1,8 @@
 import unittest
 
-from torch import Tensor
 from hydra import initialize, compose
 import torch
+from torch import Tensor
 
 from data.datamodule import MusicDataModule
 

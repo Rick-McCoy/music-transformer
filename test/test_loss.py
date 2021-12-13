@@ -1,8 +1,8 @@
 import unittest
 
-import torch
-import numpy as np
 from hydra import initialize, compose
+import numpy as np
+import torch
 
 from model.loss import SimpleLoss
 

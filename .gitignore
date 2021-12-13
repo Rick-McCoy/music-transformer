@@ -144,3 +144,4 @@ outputs/
 .vscode/
 data/midi
 data/*.tar
+checkpoints/

@@ -1,6 +1,6 @@
+from omegaconf import DictConfig
 import torch
 from torch import Tensor
-from omegaconf import DictConfig
 
 
 class SimpleAccuracy:

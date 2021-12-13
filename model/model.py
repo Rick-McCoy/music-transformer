@@ -1,8 +1,9 @@
-from typing import Dict, List, Tuple
-import torch
-from torch import Tensor
+from typing import Tuple
+
 from omegaconf import DictConfig
 from pytorch_lightning import LightningModule
+import torch
+from torch import Tensor
 
 from model.accuracy import SimpleAccuracy
 from model.loss import SimpleLoss
@@ -88,45 +89,6 @@ class MusicModel(LightningModule):
         self.log("val_velocity_acc", velocity_acc)
         self.log("val_loss", loss)
         self.log("val_acc", acc)
-        tick_pred = torch.argmax(tick_out, dim=-1)
-        pitch_pred = torch.argmax(pitch_out, dim=-1)
-        program_pred = torch.argmax(program_out, dim=-1)
-        velocity_pred = torch.argmax(velocity_out, dim=-1)
-        return {
-            'tick': tick[:, 1:],
-            'tick_pred': tick_pred,
-            'pitch': pitch[:, 1:],
-            'pitch_pred': pitch_pred,
-            'program': program[:, 1:],
-            'program_pred': program_pred,
-            'velocity': velocity[:, 1:],
-            'velocity_pred': velocity_pred,
-        }
-
-    def validation_epoch_end(self, outputs: List[Dict[str, Tensor]]) -> None:
-        ticks = torch.cat([output['tick'] for output in outputs], dim=0)
-        tick_preds = torch.cat([output['tick_pred'] for output in outputs],
-                               dim=0)
-        self.logger.experiment[0].add_pr_curve("tick", ticks, tick_preds,
-                                               self.current_epoch)
-        pitches = torch.cat([output['pitch'] for output in outputs], dim=0)
-        pitch_preds = torch.cat([output['pitch_pred'] for output in outputs],
-                                dim=0)
-        self.logger.experiment[0].add_pr_curve("pitch", pitches, pitch_preds,
-                                               self.current_epoch)
-        programs = torch.cat([output['program'] for output in outputs], dim=0)
-        program_preds = torch.cat(
-            [output['program_pred'] for output in outputs], dim=0)
-        self.logger.experiment[0].add_pr_curve("program", programs,
-                                               program_preds,
-                                               self.current_epoch)
-        velocities = torch.cat([output['velocity'] for output in outputs],
-                               dim=0)
-        velocity_preds = torch.cat(
-            [output['velocity_pred'] for output in outputs], dim=0)
-        self.logger.experiment[0].add_pr_curve("velocity", velocities,
-                                               velocity_preds,
-                                               self.current_epoch)
 
     def test_step(self, batch: Tuple[Tensor, Tensor, Tensor, Tensor], *args,
                   **kwargs) -> Tensor:
@@ -154,45 +116,6 @@ class MusicModel(LightningModule):
         self.log("test_velocity_acc", velocity_acc)
         self.log("test_loss", loss)
         self.log("test_acc", acc)
-        tick_pred = torch.argmax(tick_out, dim=-1)
-        pitch_pred = torch.argmax(pitch_out, dim=-1)
-        program_pred = torch.argmax(program_out, dim=-1)
-        velocity_pred = torch.argmax(velocity_out, dim=-1)
-        return {
-            'tick': tick[:, 1:],
-            'tick_pred': tick_pred,
-            'pitch': pitch[:, 1:],
-            'pitch_pred': pitch_pred,
-            'program': program[:, 1:],
-            'program_pred': program_pred,
-            'velocity': velocity[:, 1:],
-            'velocity_pred': velocity_pred,
-        }
-
-    def test_epoch_end(self, outputs: List[Dict[str, Tensor]]) -> None:
-        ticks = torch.cat([output['tick'] for output in outputs], dim=0)
-        tick_preds = torch.cat([output['tick_pred'] for output in outputs],
-                               dim=0)
-        self.logger.experiment[0].add_pr_curve("tick", ticks, tick_preds,
-                                               self.current_epoch)
-        pitches = torch.cat([output['pitch'] for output in outputs], dim=0)
-        pitch_preds = torch.cat([output['pitch_pred'] for output in outputs],
-                                dim=0)
-        self.logger.experiment[0].add_pr_curve("pitch", pitches, pitch_preds,
-                                               self.current_epoch)
-        programs = torch.cat([output['program'] for output in outputs], dim=0)
-        program_preds = torch.cat(
-            [output['program_pred'] for output in outputs], dim=0)
-        self.logger.experiment[0].add_pr_curve("program", programs,
-                                               program_preds,
-                                               self.current_epoch)
-        velocities = torch.cat([output['velocity'] for output in outputs],
-                               dim=0)
-        velocity_preds = torch.cat(
-            [output['velocity_pred'] for output in outputs], dim=0)
-        self.logger.experiment[0].add_pr_curve("velocity", velocities,
-                                               velocity_preds,
-                                               self.current_epoch)
 
     def configure_optimizers(self):
         return torch.optim.Adam(params=self.parameters(),
