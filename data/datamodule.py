@@ -1,4 +1,5 @@
 from typing import Optional
+
 from omegaconf.dictconfig import DictConfig
 from pytorch_lightning import LightningDataModule
 from torch.utils.data.dataloader import DataLoader

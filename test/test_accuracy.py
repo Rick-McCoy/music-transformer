@@ -14,7 +14,7 @@ class TestAccuracy(unittest.TestCase):
             self.acc = SimpleAccuracy(cfg)
 
     def test_accuracy(self):
-        logits = torch.arange(100).reshape(10, 10)
+        logits = torch.arange(100, dtype=torch.float32).reshape(10, 10)
         target_1 = torch.full((10, ), 9)
         target_2 = torch.arange(10)
         self.assertAlmostEqual(self.acc(logits, target_1), 1)

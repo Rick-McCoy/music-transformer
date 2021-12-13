@@ -1,13 +1,11 @@
 from typing import Tuple
 
+from hydra.utils import to_absolute_path
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import random_split
-
 from torchvision import transforms
 from torchvision.datasets import MNIST
-
-from hydra.utils import to_absolute_path
 
 
 def load_mnist(path: str) -> None:

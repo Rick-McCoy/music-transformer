@@ -142,3 +142,4 @@ MNIST/
 log/
 outputs/
 .vscode/
+checkpoints/

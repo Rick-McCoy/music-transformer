@@ -1,5 +1,5 @@
-from torch import nn, Tensor
 from omegaconf import DictConfig
+from torch import nn, Tensor
 
 
 class SimpleLoss(nn.Module):
