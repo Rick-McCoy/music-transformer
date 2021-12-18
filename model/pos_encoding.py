@@ -25,30 +25,27 @@ class PositionalEncoding(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.dropout = nn.Dropout(p=cfg.model.dropout)
-        self.embed_dim = cfg.model.d_model * 3
-        arange = torch.arange(0, self.embed_dim, 2, dtype=torch.float32)
-        self.register_buffer("arange", arange)
-        self.arange: Tensor
+        position = torch.arange(0, self.cfg.model.data_len,
+                                dtype=torch.float).reshape(1, -1, 1)
+        div_term = torch.exp(
+            torch.arange(0, cfg.model.d_model, 2, dtype=torch.float32) *
+            (-math.log(10000.0) / cfg.model.d_model))
+        term = position * div_term
+        positional_encoding = torch.flatten(torch.stack(
+            [torch.sin(term), torch.cos(term)], dim=-1),
+                                            start_dim=-2)
+        self.register_buffer("positional_encoding", positional_encoding)
+        self.positional_encoding: Tensor
 
-    def forward(self, embedding: Tensor, time: Tensor):
+    def forward(self, embedding: Tensor):
         r"""Inputs of forward function
         Args:
             embedding: the sequence fed to the positional encoder model (required).
         Shape:
-            embedding: [batch size, sequence length, model dim * 3]
-            time: [batch size, sequence length]
-            output: [batch size, sequence length, model dim * 3]
+            embedding: [batch size, sequence length, model dim]
+            output: [batch size, sequence length, model dim]
         Examples:
             >>> output = pos_encoder(embedding)
         """
 
-        with torch.no_grad():
-            position = time.unsqueeze(-1)
-            div_term = torch.exp(self.arange *
-                                 (-math.log(10000.0) / self.embed_dim))
-            term = position * div_term
-            positional_encoding = torch.stack(
-                [torch.sin(term), torch.cos(term)],
-                dim=-1).reshape_as(embedding)
-
-        return self.dropout(embedding + positional_encoding)
+        return self.dropout(embedding + self.positional_encoding)

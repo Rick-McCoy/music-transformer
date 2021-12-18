@@ -1,7 +1,4 @@
-from typing import Tuple
-
 from omegaconf import DictConfig
-import torch
 from torch import nn, Tensor
 
 from model.embedding import Embedding
@@ -13,60 +10,26 @@ class Transformer(nn.Module):
         super().__init__()
         self.embedding = Embedding(cfg)
         self.pos_encoding = PositionalEncoding(cfg)
-        self.common_transformer = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model=cfg.model.d_model * 3,
+        self.transformer = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(d_model=cfg.model.d_model,
                                        nhead=cfg.model.nhead,
-                                       dim_feedforward=cfg.model.ff * 3,
+                                       dim_feedforward=cfg.model.ff,
                                        dropout=cfg.model.dropout,
                                        batch_first=True),
             num_layers=cfg.model.num_layers,
-            norm=nn.LayerNorm((cfg.model.d_model * 3, )))
-        self.project = nn.Linear(in_features=cfg.model.d_model * 3,
-                                 out_features=cfg.model.d_model)
-        self.transformers = nn.ModuleList([
-            nn.TransformerEncoder(
-                nn.TransformerEncoderLayer(d_model=cfg.model.d_model,
-                                           nhead=cfg.model.nhead,
-                                           dim_feedforward=cfg.model.ff,
-                                           dropout=cfg.model.dropout,
-                                           batch_first=True),
-                num_layers=cfg.model.num_layers,
-                norm=nn.LayerNorm((cfg.model.d_model, ))) for _ in range(4)
-        ])
+            norm=nn.LayerNorm((cfg.model.d_model, )))
         mask = nn.Transformer.generate_square_subsequent_mask(
             cfg.model.data_len)
         self.register_buffer("mask", mask)
         self.mask: Tensor
-        self.tick_linear = nn.Linear(in_features=cfg.model.d_model,
-                                     out_features=cfg.model.num_tick)
-        self.pitch_linear = nn.Linear(in_features=cfg.model.d_model,
-                                      out_features=cfg.model.num_pitch)
-        self.program_linear = nn.Linear(in_features=cfg.model.d_model,
-                                        out_features=cfg.model.num_program)
-        self.velocity_linear = nn.Linear(in_features=cfg.model.d_model,
-                                         out_features=cfg.model.num_velocity)
-        self.relu = nn.ReLU()
+        self.linear = nn.Linear(in_features=cfg.model.d_model,
+                                out_features=cfg.model.num_token)
 
-    def forward(self, tick: Tensor, pitch: Tensor, program: Tensor,
-                velocity: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-        embedded = self.embedding(pitch, program, velocity)
-        encoded = self.pos_encoding(embedded, torch.cumsum(tick, dim=-1))
-        projected = self.project(
-            self.common_transformer(encoded, mask=self.mask))
-        tick_out = self.tick_linear(
-            self.relu(self.transformers[0](projected, mask=self.mask)))
-        pitch_out = self.pitch_linear(
-            self.relu(self.transformers[1](projected, mask=self.mask)))
-        program_out = self.program_linear(
-            self.relu(self.transformers[2](projected, mask=self.mask)))
-        velocity_out = self.velocity_linear(
-            self.relu(self.transformers[3](projected, mask=self.mask)))
-        tick_out = tick_out.permute([0, -1] +
-                                    list(range(1, tick_out.ndim - 1)))
-        pitch_out = pitch_out.permute([0, -1] +
-                                      list(range(1, tick_out.ndim - 1)))
-        program_out = program_out.permute([0, -1] +
-                                          list(range(1, tick_out.ndim - 1)))
-        velocity_out = velocity_out.permute([0, -1] +
-                                            list(range(1, tick_out.ndim - 1)))
-        return tick_out, pitch_out, program_out, velocity_out
+    def forward(self, data: Tensor) -> Tensor:
+        embedded = self.embedding(data)
+        encoded = self.pos_encoding(embedded)
+        transformed = self.transformer(encoded, mask=self.mask)
+        projected = self.linear(transformed)
+        output = projected.permute([0, -1] +
+                                   list(range(1, projected.ndim - 1)))
+        return output

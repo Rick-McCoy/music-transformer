@@ -22,28 +22,10 @@ class TestDataModule(unittest.TestCase):
                 self.module.val_dataloader(),
                 self.module.test_dataloader()
         ]:
-            ticks, programs, pitches, velocities = next(iter(dataloader))
-            self.assertIsInstance(ticks, Tensor)
-            self.assertEqual(ticks.dtype, torch.int64)
-            self.assertEqual(ticks.size(), (
-                self.cfg.train.batch_size,
-                self.cfg.model.data_len + 1,
-            ))
-            self.assertIsInstance(programs, Tensor)
-            self.assertEqual(programs.dtype, torch.int64)
-            self.assertEqual(programs.size(), (
-                self.cfg.train.batch_size,
-                self.cfg.model.data_len + 1,
-            ))
-            self.assertIsInstance(pitches, Tensor)
-            self.assertEqual(pitches.dtype, torch.int64)
-            self.assertEqual(pitches.size(), (
-                self.cfg.train.batch_size,
-                self.cfg.model.data_len + 1,
-            ))
-            self.assertIsInstance(velocities, Tensor)
-            self.assertEqual(velocities.dtype, torch.int64)
-            self.assertEqual(velocities.size(), (
+            data = next(iter(dataloader))
+            self.assertIsInstance(data, Tensor)
+            self.assertEqual(data.dtype, torch.int64)
+            self.assertEqual(data.size(), (
                 self.cfg.train.batch_size,
                 self.cfg.model.data_len + 1,
             ))

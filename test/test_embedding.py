@@ -14,10 +14,7 @@ class TestEmbedding(unittest.TestCase):
             self.embedding = Embedding(cfg)
 
     def test_embedding(self):
-        pitch = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)
-        program = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)
-        velocity = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)
-        output = self.embedding(pitch, program, velocity)
-        self.assertEqual(
-            output.size(),
-            (8, self.cfg.model.data_len, self.cfg.model.d_model * 3))
+        data = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)
+        output = self.embedding(data)
+        self.assertEqual(output.size(),
+                         (8, self.cfg.model.data_len, self.cfg.model.d_model))

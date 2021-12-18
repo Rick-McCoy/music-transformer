@@ -15,9 +15,7 @@ class TestPositionalEncoding(unittest.TestCase):
 
     def test_pos_encoding(self):
         embedding = torch.zeros(8, self.cfg.model.data_len,
-                                self.cfg.model.d_model * 3)
-        time = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)
-        output = self.pos_encoding(embedding, time)
-        self.assertEqual(
-            output.size(),
-            (8, self.cfg.model.data_len, self.cfg.model.d_model * 3))
+                                self.cfg.model.d_model)
+        output = self.pos_encoding(embedding)
+        self.assertEqual(output.size(),
+                         (8, self.cfg.model.data_len, self.cfg.model.d_model))

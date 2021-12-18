@@ -14,20 +14,8 @@ class TestTransformer(unittest.TestCase):
             self.transformer = Transformer(cfg)
 
     def test_transformer(self):
-        tick = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)
-        pitch = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)
-        program = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)
-        velocity = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)
-        tick_out, pitch_out, program_out, velocity_out = self.transformer(
-            tick, pitch, program, velocity)
-        self.assertEqual(tick_out.size(),
-                         (8, self.cfg.model.num_tick, self.cfg.model.data_len))
+        data = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)
+        output = self.transformer(data)
         self.assertEqual(
-            pitch_out.size(),
-            (8, self.cfg.model.num_pitch, self.cfg.model.data_len))
-        self.assertEqual(
-            program_out.size(),
-            (8, self.cfg.model.num_program, self.cfg.model.data_len))
-        self.assertEqual(
-            velocity_out.size(),
-            (8, self.cfg.model.num_velocity, self.cfg.model.data_len))
+            output.size(),
+            (8, self.cfg.model.num_token, self.cfg.model.data_len))

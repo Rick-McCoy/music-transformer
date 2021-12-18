@@ -4,13 +4,13 @@ from typing import List, Optional
 
 from hydra.utils import to_absolute_path
 from mido.midifiles.midifiles import MidiFile
-import numpy as np
+from numpy import ndarray
 from omegaconf.dictconfig import DictConfig
 from pytorch_lightning import LightningDataModule
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset, random_split
 
-from data.utils import read_midi, prepare_data
+from data.utils import read_midi, Tokenizer, prepare_data
 
 
 class MusicDataset(Dataset):
@@ -19,26 +19,15 @@ class MusicDataset(Dataset):
         self.cfg = cfg
         self.length = cfg.model.data_len + 1
         self.path_list = path_list
+        self.tokenizer = Tokenizer(cfg)
 
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: int) -> ndarray:
         path = self.path_list[index].strip()
-        ticks, programs, _, pitches, velocities = read_midi(
-            MidiFile(filename=path, clip=True))
+        data = self.tokenizer.tokenize(read_midi(
+            MidiFile(filename=path, clip=True)),
+                                       length=self.length)
 
-        ticks = np.minimum(ticks, self.cfg.model.num_tick - 1)
-
-        orig_len = ticks.shape[0]
-        if orig_len >= self.length:
-            random_index = random.randint(0, orig_len - self.length)
-            return ticks[random_index:random_index + self.length], \
-                   programs[random_index:random_index + self.length], \
-                   pitches[random_index:random_index + self.length], \
-                   velocities[random_index:random_index + self.length]
-
-        return np.pad(ticks, (0, self.length - orig_len), mode="constant", constant_values=0), \
-               np.pad(programs, (0, self.length - orig_len), mode="constant", constant_values=0), \
-               np.pad(pitches, (0, self.length - orig_len), mode="constant", constant_values=0), \
-               np.pad(velocities, (0, self.length - orig_len), mode="constant", constant_values=0)
+        return data
 
     def __len__(self):
         return len(self.path_list)
