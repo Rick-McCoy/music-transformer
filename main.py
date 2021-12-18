@@ -1,9 +1,11 @@
+import os
+
 import hydra
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
-from pytorch_lightning.trainer import Trainer
-from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import DeviceStatsMonitor, ModelCheckpoint
+from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.trainer import Trainer
 
 from data.datamodule import SimpleDataModule
 from model.model import SimpleModel
@@ -45,6 +47,11 @@ def main(cfg: DictConfig = None) -> None:
     trainer.tune(model=model, datamodule=datamodule)
     trainer.fit(model=model, datamodule=datamodule)
     trainer.test(model=model, datamodule=datamodule)
+
+    os.makedirs("onnx", exist_ok=True)
+    model.to_onnx(file_path=to_absolute_path(os.path.join(
+        "onnx", "model.onnx")),
+                  export_params=True)
 
 
 if __name__ == "__main__":

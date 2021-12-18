@@ -143,3 +143,4 @@ log/
 outputs/
 .vscode/
 checkpoints/
+onnx/
