@@ -145,3 +145,4 @@ outputs/
 data/midi
 data/*.tar
 checkpoints/
+onnx/
