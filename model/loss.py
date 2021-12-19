@@ -6,7 +6,7 @@ class SimpleLoss(nn.Module):
     def __init__(self, cfg: DictConfig) -> None:
         super().__init__()
         self.cfg = cfg
-        self.cross_entropy = nn.CrossEntropyLoss()
+        self.cross_entropy = nn.CrossEntropyLoss(ignore_index=0)
 
     def forward(self, logit: Tensor, target: Tensor) -> Tensor:
         return self.cross_entropy(logit, target)

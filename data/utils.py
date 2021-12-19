@@ -4,10 +4,8 @@ from operator import attrgetter, itemgetter
 import os
 import pathlib
 import random
-from time import time
 from typing import List, Optional
 
-from hydra import initialize, compose
 from hydra.utils import to_absolute_path
 from mido import MidiFile
 from mido.midifiles.meta import KeySignatureError
@@ -15,7 +13,6 @@ import numpy as np
 from numpy import ndarray
 from omegaconf.dictconfig import DictConfig
 from tqdm import tqdm
-# import matplotlib.pyplot as plt
 
 
 class InvalidTokenizeError(Exception):
@@ -59,6 +56,7 @@ class Tokenizer:
         self.end = 2
         self.num_program = cfg.model.num_program
         self.num_type = cfg.model.num_type
+        self.num_program_type = self.num_program * self.num_type
         self.num_pitch = cfg.model.num_pitch
         self.num_velocity = cfg.model.num_velocity
         self.num_tick = cfg.model.num_tick
@@ -73,23 +71,31 @@ class Tokenizer:
     def type_to_token(self, message_type: MessageType) -> int:
         lower_bound = self.num_program + 3
         if message_type in self.valid_types:
-            return message_type + lower_bound
+            return message_type - 1 + lower_bound
+        raise InvalidTokenizeError
+
+    def program_type_to_token(self, program: int,
+                              message_type: MessageType) -> int:
+        lower_bound = 3
+        if 0 <= program < self.num_program and message_type in self.valid_types:
+            return (message_type -
+                    1) * self.num_program + program + lower_bound
         raise InvalidTokenizeError
 
     def pitch_to_token(self, pitch: int) -> int:
-        lower_bound = self.num_type + self.num_program + 3
+        lower_bound = self.num_program_type + 3
         if 0 <= pitch < self.num_pitch:
             return pitch + lower_bound
         raise InvalidTokenizeError
 
     def velocity_to_token(self, velocity: int) -> int:
-        lower_bound = self.num_pitch + self.num_type + self.num_program + 3
+        lower_bound = self.num_pitch + self.num_program_type + 3
         if 0 <= velocity < self.num_velocity:
             return velocity + lower_bound
         raise InvalidTokenizeError
 
     def tick_to_token(self, tick: int) -> int:
-        lower_bound = self.num_velocity + self.num_pitch + self.num_type + self.num_program + 3
+        lower_bound = self.num_velocity + self.num_pitch + self.num_program_type + 3
         if 0 <= tick < self.num_tick:
             return tick + lower_bound
         raise InvalidTokenizeError
@@ -100,14 +106,16 @@ class Tokenizer:
         token_list = [self.begin]
         prev_tick = 0
         for note in note_list:
-            token_list.append(self.program_to_token(note.program))
-            token_list.append(self.type_to_token(note.type))
+            # token_list.append(self.program_to_token(note.program))
+            # token_list.append(self.type_to_token(note.type))
+            token_list.append(
+                self.program_type_to_token(note.program, note.type))
             token_list.append(self.pitch_to_token(note.pitch))
             if note.type == MessageType.NOTE_ON:
                 token_list.append(self.velocity_to_token(note.velocity))
-            token_list.append(
-                self.tick_to_token(
-                    min(note.tick - prev_tick, self.num_tick - 1)))
+            tick_delta = min(note.tick - prev_tick, self.num_tick)
+            if tick_delta > 0:
+                token_list.append(self.tick_to_token(tick_delta - 1))
             prev_tick = note.tick
         token_list.append(self.end)
 
@@ -172,46 +180,3 @@ def read_midi(midi_file: MidiFile) -> List[Note]:
     notes.sort(key=attrgetter("tick", "program", "type", "pitch", "velocity"))
 
     return notes
-
-
-def main():
-    with initialize(config_path="../config"):
-        start = time()
-        lengths = []
-        cfg = compose(config_name="config")
-        data_dir = os.path.join(*cfg.data.data_dir)
-        file_dir = os.path.join(*cfg.data.file_dir)
-        prepare_data(data_dir, file_dir)
-        file_path = to_absolute_path(os.path.join(file_dir, "midi.txt"))
-        with open(file_path, mode="r", encoding="utf-8") as file:
-            path_list = file.readlines()
-        random.shuffle(path_list)
-        tokenizer = Tokenizer(cfg)
-        for path in tqdm(path_list):
-            filename = to_absolute_path(os.path.join(data_dir, path.strip()))
-            lengths.append(
-                len(
-                    tokenizer.tokenize(
-                        read_midi(MidiFile(filename=filename, clip=True)))))
-            if time() - start > 100:
-                # plt.hist(ticks,
-                #          bins=np.exp(np.linspace(np.log(1e3), np.log(1e5),
-                #                                  100)))
-                # plt.hist(ticks, bins=100)
-                # plt.xlabel("Tick")
-                # plt.ylabel("Frequency")
-                # plt.xscale("log")
-                # plt.savefig("temp.png")
-                # plt.close()
-                print(f"50%: {np.percentile(lengths, 50)}")
-                print(f"75%: {np.percentile(lengths, 75)}")
-                print(f"90%: {np.percentile(lengths, 90)}")
-                print(f"95%: {np.percentile(lengths, 95)}")
-                print(f"99%: {np.percentile(lengths, 99)}")
-                print(f"99.5%: {np.percentile(lengths, 99.5)}")
-                print(f"99.9%: {np.percentile(lengths, 99.9)}")
-                break
-
-
-if __name__ == '__main__':
-    main()

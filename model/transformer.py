@@ -15,7 +15,8 @@ class Transformer(nn.Module):
                                        nhead=cfg.model.nhead,
                                        dim_feedforward=cfg.model.ff,
                                        dropout=cfg.model.dropout,
-                                       batch_first=True),
+                                       batch_first=True,
+                                       norm_first=True),
             num_layers=cfg.model.num_layers,
             norm=nn.LayerNorm((cfg.model.d_model, )))
         mask = nn.Transformer.generate_square_subsequent_mask(

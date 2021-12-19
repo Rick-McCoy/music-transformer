@@ -15,7 +15,7 @@ class MusicModel(LightningModule):
         self.learning_rate = cfg.train.lr
         self.transformer = Transformer(cfg)
         self.loss = SimpleLoss(cfg)
-        self.acc = Accuracy(top_k=1)
+        self.acc = Accuracy(top_k=1, ignore_index=0)
         self.example_input_array = torch.zeros(cfg.train.batch_size,
                                                cfg.model.data_len,
                                                dtype=torch.int64)

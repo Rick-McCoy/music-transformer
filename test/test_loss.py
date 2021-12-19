@@ -15,9 +15,9 @@ class TestLoss(unittest.TestCase):
             self.loss = SimpleLoss(cfg)
 
     def test_loss(self):
-        logit_1 = torch.zeros(8, self.cfg.model.num_pitch,
-                              self.cfg.model.data_len)
-        target_1 = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)
+        logit_1 = torch.ones(8, self.cfg.model.num_pitch,
+                             self.cfg.model.data_len)
+        target_1 = torch.ones(8, self.cfg.model.data_len, dtype=torch.int64)
         self.assertAlmostEqual(self.loss(logit_1, target_1).numpy(),
                                np.log(self.cfg.model.num_pitch),
                                places=4)
@@ -27,5 +27,11 @@ class TestLoss(unittest.TestCase):
         target_2 = torch.arange(8, dtype=torch.int64).unsqueeze(dim=1).repeat(
             (1, self.cfg.model.data_len))
         self.assertAlmostEqual(self.loss(logit_2, target_2).numpy(),
+                               0,
+                               places=4)
+        logit_3 = torch.zeros(8, self.cfg.model.num_pitch,
+                              self.cfg.model.data_len)
+        target_3 = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)
+        self.assertAlmostEqual(self.loss(logit_3, target_3).numpy(),
                                0,
                                places=4)

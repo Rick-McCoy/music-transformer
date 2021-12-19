@@ -7,7 +7,8 @@ class Embedding(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.embed = nn.Embedding(num_embeddings=cfg.model.num_token,
-                                  embedding_dim=cfg.model.d_model)
+                                  embedding_dim=cfg.model.d_model,
+                                  padding_idx=0)
 
     def forward(self, data: Tensor):
         return self.embed(data)
