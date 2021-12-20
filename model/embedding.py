@@ -1,13 +1,11 @@
-from omegaconf import DictConfig
 from torch import nn, Tensor
 
 
 class Embedding(nn.Module):
-    def __init__(self, cfg: DictConfig) -> None:
+    def __init__(self, d_model: int, num_token: int) -> None:
         super().__init__()
-        self.cfg = cfg
-        self.embed = nn.Embedding(num_embeddings=cfg.model.num_token,
-                                  embedding_dim=cfg.model.d_model,
+        self.embed = nn.Embedding(num_embeddings=num_token,
+                                  embedding_dim=d_model,
                                   padding_idx=0)
 
     def forward(self, data: Tensor):

@@ -1,6 +1,5 @@
 import unittest
 
-from hydra import initialize, compose
 import torch
 
 from model.accuracy import SimpleAccuracy
@@ -8,10 +7,7 @@ from model.accuracy import SimpleAccuracy
 
 class TestAccuracy(unittest.TestCase):
     def setUp(self) -> None:
-        with initialize(config_path="../config"):
-            cfg = compose(config_name="config")
-            self.cfg = cfg
-            self.acc = SimpleAccuracy(cfg)
+        self.acc = SimpleAccuracy()
 
     def test_accuracy(self):
         logits = torch.arange(100, dtype=torch.float32).reshape(10, 10)

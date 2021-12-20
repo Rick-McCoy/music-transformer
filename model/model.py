@@ -1,4 +1,3 @@
-from omegaconf import DictConfig
 from pytorch_lightning import LightningModule
 import torch
 from torch import Tensor
@@ -9,16 +8,22 @@ from model.transformer import Transformer
 
 
 class MusicModel(LightningModule):
-    def __init__(self, cfg: DictConfig) -> None:
+    def __init__(self, d_model: int, data_len: int, dropout: float, ff: int,
+                 lr: float, nhead: int, num_layers: int,
+                 num_token: int) -> None:
         super().__init__()
-        self.cfg = cfg
-        self.learning_rate = cfg.train.lr
-        self.transformer = Transformer(cfg)
-        self.loss = SimpleLoss(cfg)
+        self.save_hyperparameters()
+        self.learning_rate = lr
+        self.transformer = Transformer(d_model=d_model,
+                                       data_len=data_len,
+                                       dropout=dropout,
+                                       ff=ff,
+                                       nhead=nhead,
+                                       num_layers=num_layers,
+                                       num_token=num_token)
+        self.loss = SimpleLoss()
         self.acc = Accuracy(top_k=1, ignore_index=0)
-        self.example_input_array = torch.zeros(cfg.train.batch_size,
-                                               cfg.model.data_len,
-                                               dtype=torch.int64)
+        self.example_input_array = torch.zeros(1, data_len, dtype=torch.int64)
 
     def forward(self, data: Tensor, *args, **kwargs) -> Tensor:
         return self.transformer(data)

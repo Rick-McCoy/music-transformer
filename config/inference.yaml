@@ -1,0 +1,9 @@
+defaults:
+  - _self_
+  - data: music
+  - model: music
+  - train: music
+
+name: music_model
+best_checkpoint: True
+checkpoint_path: ""

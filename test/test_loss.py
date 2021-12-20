@@ -12,7 +12,7 @@ class TestLoss(unittest.TestCase):
         with initialize(config_path="../config"):
             cfg = compose(config_name="config")
             self.cfg = cfg
-            self.loss = SimpleLoss(cfg)
+            self.loss = SimpleLoss()
 
     def test_loss(self):
         logit_1 = torch.ones(8, self.cfg.model.num_pitch,

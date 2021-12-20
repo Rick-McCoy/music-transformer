@@ -13,7 +13,14 @@ from model.model import MusicModel
 
 @hydra.main(config_path="config", config_name="config")
 def main(cfg: DictConfig = None) -> None:
-    model = MusicModel(cfg)
+    model = MusicModel(d_model=cfg.model.d_model,
+                       data_len=cfg.model.data_len,
+                       dropout=cfg.model.dropout,
+                       ff=cfg.model.ff,
+                       lr=cfg.train.lr,
+                       nhead=cfg.model.nhead,
+                       num_layers=cfg.model.num_layers,
+                       num_token=cfg.model.num_token)
     datamodule = MusicDataModule(cfg)
     callbacks = []
     if cfg.train.checkpoint:

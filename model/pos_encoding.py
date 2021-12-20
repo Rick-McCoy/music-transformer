@@ -1,6 +1,5 @@
 import math
 
-from omegaconf import DictConfig
 import torch
 from torch import nn, Tensor
 
@@ -21,15 +20,14 @@ class PositionalEncoding(nn.Module):
     Examples:
         >>> pos_encoder = PositionalEncoding(d_model)
     """
-    def __init__(self, cfg: DictConfig):
+    def __init__(self, d_model: int, data_len: int, dropout: float):
         super().__init__()
-        self.cfg = cfg
-        self.dropout = nn.Dropout(p=cfg.model.dropout)
-        position = torch.arange(0, self.cfg.model.data_len,
+        self.dropout = nn.Dropout(p=dropout)
+        position = torch.arange(0, data_len,
                                 dtype=torch.float).reshape(1, -1, 1)
         div_term = torch.exp(
-            torch.arange(0, cfg.model.d_model, 2, dtype=torch.float32) *
-            (-math.log(10000.0) / cfg.model.d_model))
+            torch.arange(0, d_model, 2, dtype=torch.float32) *
+            (-math.log(10000.0) / d_model))
         term = position * div_term
         positional_encoding = torch.flatten(torch.stack(
             [torch.sin(term), torch.cos(term)], dim=-1),

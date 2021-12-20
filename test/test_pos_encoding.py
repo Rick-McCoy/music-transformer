@@ -11,7 +11,9 @@ class TestPositionalEncoding(unittest.TestCase):
         with initialize(config_path="../config"):
             cfg = compose(config_name="config")
             self.cfg = cfg
-            self.pos_encoding = PositionalEncoding(cfg)
+            self.pos_encoding = PositionalEncoding(d_model=cfg.model.d_model,
+                                                   data_len=cfg.model.data_len,
+                                                   dropout=cfg.model.dropout)
 
     def test_pos_encoding(self):
         embedding = torch.zeros(8, self.cfg.model.data_len,

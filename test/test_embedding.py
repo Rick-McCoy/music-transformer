@@ -11,7 +11,8 @@ class TestEmbedding(unittest.TestCase):
         with initialize(config_path="../config"):
             cfg = compose(config_name="config")
             self.cfg = cfg
-            self.embedding = Embedding(cfg)
+            self.embedding = Embedding(d_model=cfg.model.d_model,
+                                       num_token=cfg.model.num_token)
 
     def test_embedding(self):
         data = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)

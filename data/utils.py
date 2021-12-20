@@ -8,6 +8,7 @@ from typing import List, Optional
 
 from hydra.utils import to_absolute_path
 from mido import MidiFile
+from mido.messages.messages import Message
 from mido.midifiles.meta import KeySignatureError
 import numpy as np
 from numpy import ndarray
@@ -15,7 +16,23 @@ from omegaconf.dictconfig import DictConfig
 from tqdm import tqdm
 
 
-class InvalidTokenizeError(Exception):
+class InvalidProgramError(Exception):
+    pass
+
+
+class InvalidTypeError(Exception):
+    pass
+
+
+class InvalidPitchError(Exception):
+    pass
+
+
+class InvalidVelocityError(Exception):
+    pass
+
+
+class InvalidTickError(Exception):
     pass
 
 
@@ -62,43 +79,32 @@ class Tokenizer:
         self.num_tick = cfg.model.num_tick
         self.valid_types = [MessageType.NOTE_OFF, MessageType.NOTE_ON]
 
-    def program_to_token(self, program: int) -> int:
-        lower_bound = 3
-        if 0 <= program < self.num_program:
-            return program + lower_bound
-        raise InvalidTokenizeError
-
-    def type_to_token(self, message_type: MessageType) -> int:
-        lower_bound = self.num_program + 3
-        if message_type in self.valid_types:
-            return message_type - 1 + lower_bound
-        raise InvalidTokenizeError
-
     def program_type_to_token(self, program: int,
                               message_type: MessageType) -> int:
         lower_bound = 3
-        if 0 <= program < self.num_program and message_type in self.valid_types:
-            return (message_type -
-                    1) * self.num_program + program + lower_bound
-        raise InvalidTokenizeError
+        if 0 > program or program >= self.num_program:
+            raise InvalidProgramError
+        if message_type not in self.valid_types:
+            raise InvalidTypeError
+        return (message_type - 1) * self.num_program + program + lower_bound
 
     def pitch_to_token(self, pitch: int) -> int:
         lower_bound = self.num_program_type + 3
-        if 0 <= pitch < self.num_pitch:
-            return pitch + lower_bound
-        raise InvalidTokenizeError
+        if 0 > pitch or pitch >= self.num_pitch:
+            raise InvalidPitchError
+        return pitch + lower_bound
 
     def velocity_to_token(self, velocity: int) -> int:
         lower_bound = self.num_pitch + self.num_program_type + 3
-        if 0 <= velocity < self.num_velocity:
-            return velocity + lower_bound
-        raise InvalidTokenizeError
+        if 0 > velocity or velocity >= self.num_velocity:
+            raise InvalidVelocityError
+        return velocity + lower_bound
 
     def tick_to_token(self, tick: int) -> int:
         lower_bound = self.num_velocity + self.num_pitch + self.num_program_type + 3
-        if 0 <= tick < self.num_tick:
-            return tick + lower_bound
-        raise InvalidTokenizeError
+        if 0 > tick or tick >= self.num_tick:
+            raise InvalidTickError
+        return tick + lower_bound
 
     def tokenize(self,
                  note_list: List[Note],
@@ -131,6 +137,39 @@ class Tokenizer:
 
         return np.array(token_list, dtype=np.int64)
 
+    def tokens_to_notes(self, tokens: ndarray) -> List[Note]:
+        note_list: List[Note] = []
+        message_type = None
+        program = None
+        pitch = None
+        prev_tick = 0
+        for token in tokens:
+            if token < 3:
+                continue
+            elif token < self.num_program_type + 3:
+                message_type = MessageType((token - 3) // self.num_program)
+                program = (token - 3) % self.num_program
+            elif token < self.num_pitch + self.num_program_type + 3:
+                pitch = token - self.num_program_type - 3
+                if message_type is not None and program is not None:
+                    note_list.append(
+                        Note(message_type=message_type,
+                             tick=prev_tick,
+                             pitch=pitch,
+                             velocity=-1,
+                             program=program))
+            elif token < self.num_velocity + self.num_pitch + self.num_program_type + 3:
+                velocity = token - self.num_pitch - self.num_program_type - 3
+                if note_list:
+                    note_list[-1].velocity = velocity
+            elif token < self.num_tick + self.num_velocity + self.num_pitch + self.num_program_type + 3:
+                tick = token - self.num_velocity - self.num_pitch - self.num_program_type - 3
+                prev_tick += tick
+                if note_list:
+                    note_list[-1].tick = prev_tick
+
+        return note_list
+
 
 def prepare_data(data_dir: str, file_dir: str) -> None:
     os.makedirs(file_dir, exist_ok=True)
@@ -151,8 +190,8 @@ def prepare_data(data_dir: str, file_dir: str) -> None:
 def read_midi(midi_file: MidiFile) -> List[Note]:
     notes: List[Note] = []
     messages = []
-    programs = np.zeros(17, dtype=np.int64)
-    programs[-1] = 128
+    programs = np.zeros(16, dtype=np.int64)
+    programs[9] = 128
 
     for track in midi_file.tracks:
         cur_tick = 0
@@ -174,9 +213,46 @@ def read_midi(midi_file: MidiFile) -> List[Note]:
             program = programs[message.channel]
             notes.append(
                 Note(MessageType.NOTE_OFF, tick, message.note, 0, program))
-        elif message.type == "program_change":
+        elif message.type == "program_change" and message.channel != 9:
             programs[message.channel] = message.program
 
     notes.sort(key=attrgetter("tick", "program", "type", "pitch", "velocity"))
 
     return notes
+
+
+def write_midi(note_list: List[Note]) -> MidiFile:
+    midi_file = MidiFile()
+    midi_file.add_track()
+    prev_tick = 0
+    programs = np.full(16, fill_value=-1, dtype=np.int64)
+    for track in midi_file.tracks:
+        for note in note_list:
+            channel = 9 if note.program == 128 else 0
+            if note.program != programs[channel] and channel != 9:
+                track.append(
+                    Message("program_change",
+                            channel=channel,
+                            program=note.program,
+                            time=note.tick - prev_tick))
+                programs[channel] = note.program
+                prev_tick = note.tick
+            if note.type == MessageType.NOTE_OFF:
+                track.append(
+                    Message("note_off",
+                            channel=channel,
+                            note=note.pitch,
+                            velocity=note.velocity,
+                            time=note.tick - prev_tick))
+            elif note.type == MessageType.NOTE_ON:
+                track.append(
+                    Message("note_on",
+                            channel=channel,
+                            note=note.pitch,
+                            velocity=note.velocity,
+                            time=note.tick - prev_tick))
+            else:
+                raise InvalidTypeError
+            prev_tick = note.tick
+
+    return midi_file
