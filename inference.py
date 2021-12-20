@@ -43,23 +43,33 @@ def main(cfg: DictConfig = None) -> None:
 
     if cfg.best_checkpoint:
         checkpoint_dir = to_absolute_path("checkpoints")
+        best_checkpoint = find_best_checkpoint(checkpoint_dir)
+        print(f"Loading checkpoint {best_checkpoint}")
         model.load_from_checkpoint(find_best_checkpoint(checkpoint_dir))
     elif cfg.checkpoint_path:
+        print(f"Loading checkpoint {cfg.checkpoint_path}")
         model.load_from_checkpoint(cfg.checkpoint_path)
     else:
         raise NotImplementedError("No checkpoint specified")
 
-    dataloader = datamodule.test_dataloader()
-    batch = next(dataloader)[:1, :-1]
-    for _ in tqdm(range(cfg.model.data_len)):
-        pred = model(batch)[:, -1:]
-        batch = torch.cat([batch, pred], dim=-1)[:, 1:]
-
     tokenizer = Tokenizer(cfg)
-    tokens = batch[0].detach().cpu().numpy()
-    note_list = tokenizer.tokens_to_notes(tokens)
-    midi_file = write_midi(note_list)
-    midi_file.save(filename="results.mid")
+    datamodule.prepare_data()
+    datamodule.setup()
+    dataloader = datamodule.test_dataloader()
+    for batch in dataloader:
+        batch = batch[:1, :-1]
+        tokens = batch[0].detach().cpu().numpy()
+        note_list = tokenizer.tokens_to_notes(tokens)
+        midi_file = write_midi(note_list)
+        midi_file.save(filename="input.mid")
+        for _ in tqdm(range(cfg.model.data_len)):
+            pred = model(batch)[:, :, -1:].argmax(dim=1)
+            batch = torch.cat([batch, pred], dim=-1)[:, 1:]
+        tokens = batch[0].detach().cpu().numpy()
+        note_list = tokenizer.tokens_to_notes(tokens)
+        midi_file = write_midi(note_list)
+        midi_file.save(filename="results.mid")
+        break
 
 
 if __name__ == "__main__":

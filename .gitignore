@@ -144,6 +144,7 @@ outputs/
 .vscode/
 data/midi
 data/*.tar
+data/*.npz
 checkpoints/
 onnx/
 temp.py

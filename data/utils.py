@@ -139,31 +139,29 @@ class Tokenizer:
 
     def tokens_to_notes(self, tokens: ndarray) -> List[Note]:
         note_list: List[Note] = []
-        message_type = None
-        program = None
-        pitch = None
         prev_tick = 0
         for token in tokens:
             if token < 3:
                 continue
-            elif token < self.num_program_type + 3:
-                message_type = MessageType((token - 3) // self.num_program)
+            if token < self.num_program_type + 3:
+                message_type = MessageType((token - 3) // self.num_program + 1)
                 program = (token - 3) % self.num_program
+                note_list.append(
+                    Note(message_type=message_type,
+                         tick=prev_tick,
+                         pitch=0,
+                         velocity=0,
+                         program=program))
             elif token < self.num_pitch + self.num_program_type + 3:
                 pitch = token - self.num_program_type - 3
-                if message_type is not None and program is not None:
-                    note_list.append(
-                        Note(message_type=message_type,
-                             tick=prev_tick,
-                             pitch=pitch,
-                             velocity=-1,
-                             program=program))
+                if note_list:
+                    note_list[-1].pitch = pitch
             elif token < self.num_velocity + self.num_pitch + self.num_program_type + 3:
                 velocity = token - self.num_pitch - self.num_program_type - 3
                 if note_list:
                     note_list[-1].velocity = velocity
             elif token < self.num_tick + self.num_velocity + self.num_pitch + self.num_program_type + 3:
-                tick = token - self.num_velocity - self.num_pitch - self.num_program_type - 3
+                tick = token - self.num_velocity - self.num_pitch - self.num_program_type - 3 + 1
                 prev_tick += tick
                 if note_list:
                     note_list[-1].tick = prev_tick
@@ -171,20 +169,35 @@ class Tokenizer:
         return note_list
 
 
-def prepare_data(data_dir: str, file_dir: str) -> None:
+def prepare_data(cfg: DictConfig) -> None:
+    data_dir = os.path.join(*cfg.data.data_dir)
+    file_dir = os.path.join(*cfg.data.file_dir)
     os.makedirs(file_dir, exist_ok=True)
-    file_path = to_absolute_path(os.path.join(file_dir, "midi.txt"))
+    file_path = to_absolute_path(os.path.join(file_dir, "midi.npz"))
+    text_path = to_absolute_path(os.path.join(file_dir, "midi.txt"))
     data_path = to_absolute_path(os.path.join(data_dir, "**", "*.mid"))
     if not os.path.isfile(file_path):
-        with open(file_path, mode="w", encoding="utf-8") as file:
+        with open(text_path, mode="w", encoding="utf-8") as file:
+            tokens = []
+            tokenizer = Tokenizer(cfg)
+            count = 0
             for path in tqdm(glob.iglob(data_path, recursive=True)):
-                relative_path = pathlib.Path(path).relative_to(data_dir)
+                relative_path = pathlib.Path(path).relative_to(
+                    to_absolute_path(data_dir))
                 try:
-                    MidiFile(path, clip=True)
-                    file.write(relative_path + "\n")
+                    tokens.append(
+                        tokenizer.tokenize(
+                            read_midi(MidiFile(filename=path,
+                                               clip=True))).astype(np.int16))
+                    file.write(str(relative_path) + "\n")
+                    count += 1
                 except (EOFError, KeySignatureError, IndexError) as exception:
                     tqdm.write(f"{type(exception).__name__}: {relative_path}")
                     continue
+                if count > 100:
+                    break
+
+        np.savez(to_absolute_path(file_path), *tokens)
 
 
 def read_midi(midi_file: MidiFile) -> List[Note]:
@@ -197,8 +210,6 @@ def read_midi(midi_file: MidiFile) -> List[Note]:
         cur_tick = 0
         for message in track:
             cur_tick += message.time
-            if hasattr(message, "channel") and message.channel == 9:
-                continue
             messages.append((cur_tick, message))
 
     messages.sort(key=itemgetter(0))

@@ -10,7 +10,11 @@ from data.datamodule import MusicDataModule
 class TestDataModule(unittest.TestCase):
     def setUp(self) -> None:
         with initialize(config_path="../config"):
-            cfg = compose(config_name="config")
+            cfg = compose(config_name="config",
+                          overrides=[
+                              "train.fast_dev_run=True", "train.batch_size=2",
+                              "train.num_workers=1"
+                          ])
             self.cfg = cfg
             self.module = MusicDataModule(cfg)
         self.module.prepare_data()

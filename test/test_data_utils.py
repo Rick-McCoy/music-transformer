@@ -15,9 +15,8 @@ class TestDataUtils(unittest.TestCase):
         with initialize(config_path="../config"):
             cfg = compose(config_name="config")
         self.cfg = cfg
-        data_dir = os.path.join(*self.cfg.data.data_dir)
         file_dir = os.path.join(*self.cfg.data.file_dir)
-        prepare_data(data_dir, file_dir)
+        prepare_data(cfg)
         file_path = to_absolute_path(os.path.join(file_dir, "midi.txt"))
         with open(file_path, mode="r", encoding="utf-8") as file:
             self.path_list = file.readlines()
@@ -45,14 +44,70 @@ class TestDataUtils(unittest.TestCase):
                 self.assertLess(note.program, self.cfg.model.num_program)
 
     def test_tokenize(self):
-        self.assertTrue(self.path_list)
-        for path in self.path_list[:10]:
-            filename = to_absolute_path(
-                os.path.join(*self.cfg.data.data_dir, path.strip()))
-            data = self.tokenizer.tokenize(
-                read_midi(MidiFile(filename=filename, clip=True)))
-            self.assertTrue(np.all(data >= 0))
-            self.assertTrue(np.all(data < self.cfg.model.num_token))
+        note_list = []
+        note_list.append(
+            Note(message_type=MessageType.NOTE_ON,
+                 tick=0,
+                 pitch=64,
+                 velocity=64,
+                 program=0))
+        note_list.append(
+            Note(message_type=MessageType.NOTE_ON,
+                 tick=2,
+                 pitch=48,
+                 velocity=64,
+                 program=8))
+        note_list.append(
+            Note(message_type=MessageType.NOTE_OFF,
+                 tick=10,
+                 pitch=64,
+                 velocity=0,
+                 program=0))
+        note_list.append(
+            Note(message_type=MessageType.NOTE_OFF,
+                 tick=12,
+                 pitch=48,
+                 velocity=0,
+                 program=8))
+        tokens = self.tokenizer.tokenize(note_list)
+        self.assertEqual(tokens[0], 1)
+        self.assertEqual(tokens[1], 132)
+        self.assertEqual(tokens[2], 325)
+        self.assertEqual(tokens[3], 453)
+        self.assertEqual(tokens[4], 140)
+        self.assertEqual(tokens[5], 309)
+        self.assertEqual(tokens[6], 453)
+        self.assertEqual(tokens[7], 518)
+        self.assertEqual(tokens[8], 3)
+        self.assertEqual(tokens[9], 325)
+        self.assertEqual(tokens[10], 524)
+        self.assertEqual(tokens[11], 11)
+        self.assertEqual(tokens[12], 309)
+        self.assertEqual(tokens[13], 518)
+        self.assertEqual(tokens[14], 2)
+
+    def test_tokens_to_notes(self):
+        tokens = np.array([
+            1, 132, 325, 453, 140, 309, 453, 518, 3, 325, 524, 11, 309, 518, 2
+        ],
+                          dtype=np.int64)
+        note_list = self.tokenizer.tokens_to_notes(tokens)
+        self.assertEqual(note_list[0].tick, 0)
+        self.assertEqual(note_list[0].pitch, 64)
+        self.assertEqual(note_list[0].velocity, 64)
+        self.assertEqual(note_list[0].program, 0)
+        self.assertEqual(note_list[1].tick, 2)
+        self.assertEqual(note_list[1].pitch, 48)
+        self.assertEqual(note_list[1].velocity, 64)
+        self.assertEqual(note_list[1].program, 8)
+        self.assertEqual(note_list[2].tick, 10)
+        self.assertEqual(note_list[2].pitch, 64)
+        self.assertEqual(note_list[2].velocity, 0)
+        self.assertEqual(note_list[2].program, 0)
+        self.assertEqual(note_list[3].tick, 12)
+        self.assertEqual(note_list[3].pitch, 48)
+        self.assertEqual(note_list[3].velocity, 0)
+        self.assertEqual(note_list[3].program, 8)
 
     def test_write_midi(self):
         note_list = []
