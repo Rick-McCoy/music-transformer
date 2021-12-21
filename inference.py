@@ -72,8 +72,10 @@ def main(cfg: DictConfig = None) -> None:
         model.cuda()
         for batch in dataloader:
             batch = batch.cuda()
-            data = batch[:1, :-1]
+            data = batch[:1, 1:]
             tokens = data[0].detach().cpu().numpy()
+            if tokens[-1] < 3:
+                continue
             note_list = tokenizer.tokens_to_notes(tokens)
             midi_file = write_midi(note_list)
             midi_file.save(filename="input.mid")

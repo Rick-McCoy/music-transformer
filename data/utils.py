@@ -112,8 +112,6 @@ class Tokenizer:
         token_list = [self.begin]
         prev_tick = 0
         for note in note_list:
-            # token_list.append(self.program_to_token(note.program))
-            # token_list.append(self.type_to_token(note.type))
             token_list.append(
                 self.program_type_to_token(note.program, note.type))
             token_list.append(self.pitch_to_token(note.pitch))
@@ -124,16 +122,6 @@ class Tokenizer:
                 token_list.append(self.tick_to_token(tick_delta - 1))
             prev_tick = note.tick
         token_list.append(self.end)
-
-        if length is not None:
-            orig_len = len(token_list)
-            if length > orig_len:
-                return np.pad(token_list, (0, length - orig_len),
-                              mode="constant",
-                              constant_values=self.pad)
-            random_index = random.randint(0, orig_len - length)
-            return np.array(token_list[random_index:random_index + length],
-                            dtype=np.int64)
 
         return np.array(token_list, dtype=np.int64)
 
@@ -236,18 +224,32 @@ def write_midi(note_list: List[Note]) -> MidiFile:
     midi_file = MidiFile()
     midi_file.add_track()
     prev_tick = 0
-    programs = np.full(16, fill_value=-1, dtype=np.int64)
+    program_set = set()
+    for note in note_list:
+        if note.program != 128:
+            program_set.add(note.program)
+
+    if len(program_set) > 15:
+        print("More than 15 non-drum instruments not supported")
+        return midi_file
+
+    program_map = {}
+    for i, program in enumerate(program_set):
+        program_map[program] = i if i < 9 else i + 1
+
+    for track in midi_file.tracks:
+        for program, channel in program_map.items():
+            track.append(
+                Message("program_change",
+                        channel=channel,
+                        program=program,
+                        time=0))
+
+    program_map[128] = 9
+
     for track in midi_file.tracks:
         for note in note_list:
-            channel = 9 if note.program == 128 else 0
-            if note.program != programs[channel] and channel != 9:
-                track.append(
-                    Message("program_change",
-                            channel=channel,
-                            program=note.program,
-                            time=note.tick - prev_tick))
-                programs[channel] = note.program
-                prev_tick = note.tick
+            channel = program_map[note.program]
             if note.type == MessageType.NOTE_OFF:
                 track.append(
                     Message("note_off",
