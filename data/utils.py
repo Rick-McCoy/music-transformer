@@ -3,8 +3,7 @@ import glob
 from operator import attrgetter, itemgetter
 import os
 import pathlib
-import random
-from typing import List, Optional
+from typing import List
 
 from hydra.utils import to_absolute_path
 from mido import MidiFile
@@ -106,9 +105,7 @@ class Tokenizer:
             raise InvalidTickError
         return tick + lower_bound
 
-    def tokenize(self,
-                 note_list: List[Note],
-                 length: Optional[int] = None) -> ndarray:
+    def tokenize(self, note_list: List[Note]) -> ndarray:
         token_list = [self.begin]
         prev_tick = 0
         for note in note_list:
