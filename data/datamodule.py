@@ -36,7 +36,6 @@ class MusicDataset(Dataset):
         return data[random_index:random_index + self.length]
 
     def __len__(self):
-        # return len(self.path_list)
         return len(self.key_list)
 
 
