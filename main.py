@@ -37,7 +37,8 @@ def main(cfg: DictConfig = None) -> None:
         callbacks.append(DeviceStatsMonitor())
     logger = TensorBoardLogger(save_dir=to_absolute_path("log"),
                                name=cfg.name,
-                               log_graph=True)
+                               log_graph=True,
+                               default_hp_metric=False)
     trainer = Trainer(
         accelerator="auto",
         accumulate_grad_batches=cfg.train.acc,
