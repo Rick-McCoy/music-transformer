@@ -179,6 +179,7 @@ def prepare_data(cfg: DictConfig) -> None:
     if not os.path.isfile(file_path):
         with open(text_path, mode="w", encoding="utf-8") as file:
             tokens = []
+            filenames = []
             tokenizer = Tokenizer(cfg)
             for path in tqdm(glob.iglob(data_path, recursive=True)):
                 relative_path = pathlib.Path(path).relative_to(
@@ -188,10 +189,13 @@ def prepare_data(cfg: DictConfig) -> None:
                         tokenizer.tokenize(
                             read_midi(MidiFile(filename=path,
                                                clip=True))).astype(np.int16))
-                    file.write(str(relative_path) + "\n")
+                    filenames.append(str(relative_path))
                 except (EOFError, KeySignatureError, IndexError) as exception:
                     tqdm.write(f"{type(exception).__name__}: {relative_path}")
                     continue
+
+            filenames.sort()
+            file.writelines(filenames)
 
         np.savez(to_absolute_path(file_path), *tokens)
 
