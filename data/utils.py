@@ -164,7 +164,6 @@ def prepare_data(cfg: DictConfig) -> None:
         os.makedirs(process_dir)
         filenames = []
         tokenizer = Tokenizer(cfg)
-        count = 0
         for path in tqdm(glob.iglob(str(data_path), recursive=True)):
             relative_path = Path(path).relative_to(data_dir)
             try:
@@ -175,12 +174,9 @@ def prepare_data(cfg: DictConfig) -> None:
                 tokens = tokenizer.tokenize(midi_list)
                 np.save(filename, tokens.astype(np.int16))
                 filenames.append(str(relative_path) + "\n")
-                count += 1
             except (EOFError, KeySignatureError, IndexError) as exception:
                 tqdm.write(f"{type(exception).__name__}: {relative_path}")
                 continue
-            if count >= 1000:
-                break
 
         filenames.sort()
         with open(text_path, mode="w", encoding="utf-8") as file:
