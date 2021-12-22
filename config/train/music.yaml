@@ -7,4 +7,4 @@ fast_dev_run: False
 gpus: -1
 lr: 0.0001
 monitor: False
-num_workers: 1
+num_workers: 12

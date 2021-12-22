@@ -2,7 +2,7 @@ from enum import IntEnum
 import glob
 from operator import attrgetter, itemgetter
 import os
-import pathlib
+from pathlib import Path
 from typing import List
 
 from hydra.utils import to_absolute_path
@@ -155,34 +155,36 @@ class Tokenizer:
 
 
 def prepare_data(cfg: DictConfig) -> None:
-    data_dir = os.path.join(*cfg.data.data_dir)
-    file_dir = os.path.join(*cfg.data.file_dir)
-    os.makedirs(file_dir, exist_ok=True)
-    file_path = to_absolute_path(os.path.join(file_dir, "midi.npz"))
-    text_path = to_absolute_path(os.path.join(file_dir, "midi.txt"))
-    data_path = to_absolute_path(os.path.join(data_dir, "**", "*.mid"))
-    if not os.path.isfile(file_path):
+    data_dir = Path(to_absolute_path(Path(*cfg.data.data_dir)))
+    file_dir = Path(to_absolute_path(Path(*cfg.data.file_dir)))
+    process_dir = Path(to_absolute_path(Path(*cfg.data.process_dir)))
+    text_path = file_dir.joinpath("midi.txt")
+    data_path = data_dir.joinpath("**", "*.mid")
+    if not os.path.isdir(process_dir):
+        os.makedirs(process_dir)
+        filenames = []
+        tokenizer = Tokenizer(cfg)
+        count = 0
+        for path in tqdm(glob.iglob(str(data_path), recursive=True)):
+            relative_path = Path(path).relative_to(data_dir)
+            try:
+                filename = process_dir.joinpath(
+                    relative_path.with_suffix(".npy"))
+                os.makedirs(filename.parent, exist_ok=True)
+                midi_list = read_midi(MidiFile(filename=path, clip=True))
+                tokens = tokenizer.tokenize(midi_list)
+                np.save(filename, tokens.astype(np.int16))
+                filenames.append(str(relative_path) + "\n")
+                count += 1
+            except (EOFError, KeySignatureError, IndexError) as exception:
+                tqdm.write(f"{type(exception).__name__}: {relative_path}")
+                continue
+            if count >= 1000:
+                break
+
+        filenames.sort()
         with open(text_path, mode="w", encoding="utf-8") as file:
-            tokens = []
-            filenames = []
-            tokenizer = Tokenizer(cfg)
-            for path in tqdm(glob.iglob(data_path, recursive=True)):
-                relative_path = pathlib.Path(path).relative_to(
-                    to_absolute_path(data_dir))
-                try:
-                    tokens.append(
-                        tokenizer.tokenize(
-                            read_midi(MidiFile(filename=path,
-                                               clip=True))).astype(np.int16))
-                    filenames.append(str(relative_path))
-                except (EOFError, KeySignatureError, IndexError) as exception:
-                    tqdm.write(f"{type(exception).__name__}: {relative_path}")
-                    continue
-
-            filenames.sort()
             file.writelines(filenames)
-
-        np.savez(to_absolute_path(file_path), *tokens)
 
 
 def read_midi(midi_file: MidiFile) -> List[Note]:

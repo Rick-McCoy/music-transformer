@@ -143,6 +143,7 @@ log/
 outputs/
 .vscode/
 data/midi
+data/process
 data/*.tar
 data/*.npz
 checkpoints/

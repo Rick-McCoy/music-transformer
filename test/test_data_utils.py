@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 import random
 import unittest
 
@@ -15,9 +15,9 @@ class TestDataUtils(unittest.TestCase):
         with initialize(config_path="../config"):
             cfg = compose(config_name="config")
         self.cfg = cfg
-        file_dir = os.path.join(*self.cfg.data.file_dir)
+        file_dir = Path(*self.cfg.data.file_dir)
         prepare_data(cfg)
-        file_path = to_absolute_path(os.path.join(file_dir, "midi.txt"))
+        file_path = to_absolute_path(file_dir.joinpath("midi.txt"))
         with open(file_path, mode="r", encoding="utf-8") as file:
             self.path_list = file.readlines()
         random.shuffle(self.path_list)
@@ -28,7 +28,7 @@ class TestDataUtils(unittest.TestCase):
         valid_types = [MessageType.NOTE_OFF, MessageType.NOTE_ON]
         for path in self.path_list[:10]:
             filename = to_absolute_path(
-                os.path.join(*self.cfg.data.data_dir, path.strip()))
+                Path(*self.cfg.data.data_dir, path.strip()))
             notes = read_midi(MidiFile(filename=filename, clip=True))
             prev_tick = 0
             for note in notes:
@@ -141,35 +141,27 @@ class TestDataUtils(unittest.TestCase):
             self.assertEqual(track[0].channel, 0)
             self.assertEqual(track[0].program, 0)
             self.assertEqual(track[0].time, 0)
-            self.assertEqual(track[1].type, "note_on")
-            self.assertEqual(track[1].note, 64)
-            self.assertEqual(track[1].channel, 0)
-            self.assertEqual(track[1].velocity, 64)
+            self.assertEqual(track[1].type, "program_change")
+            self.assertEqual(track[1].channel, 1)
+            self.assertEqual(track[1].program, 8)
             self.assertEqual(track[1].time, 0)
-            self.assertEqual(track[2].type, "program_change")
+            self.assertEqual(track[2].type, "note_on")
+            self.assertEqual(track[2].note, 64)
             self.assertEqual(track[2].channel, 0)
-            self.assertEqual(track[2].program, 8)
-            self.assertEqual(track[2].time, 2)
+            self.assertEqual(track[2].velocity, 64)
+            self.assertEqual(track[2].time, 0)
             self.assertEqual(track[3].type, "note_on")
             self.assertEqual(track[3].note, 48)
-            self.assertEqual(track[3].channel, 0)
+            self.assertEqual(track[3].channel, 1)
             self.assertEqual(track[3].velocity, 64)
-            self.assertEqual(track[3].time, 0)
-            self.assertEqual(track[4].type, "program_change")
+            self.assertEqual(track[3].time, 2)
+            self.assertEqual(track[4].type, "note_off")
+            self.assertEqual(track[4].note, 64)
             self.assertEqual(track[4].channel, 0)
-            self.assertEqual(track[4].program, 0)
+            self.assertEqual(track[4].velocity, 0)
             self.assertEqual(track[4].time, 8)
             self.assertEqual(track[5].type, "note_off")
-            self.assertEqual(track[5].note, 64)
-            self.assertEqual(track[5].channel, 0)
+            self.assertEqual(track[5].note, 48)
+            self.assertEqual(track[5].channel, 1)
             self.assertEqual(track[5].velocity, 0)
-            self.assertEqual(track[5].time, 0)
-            self.assertEqual(track[6].type, "program_change")
-            self.assertEqual(track[6].channel, 0)
-            self.assertEqual(track[6].program, 8)
-            self.assertEqual(track[6].time, 2)
-            self.assertEqual(track[7].type, "note_off")
-            self.assertEqual(track[7].note, 48)
-            self.assertEqual(track[7].channel, 0)
-            self.assertEqual(track[7].velocity, 0)
-            self.assertEqual(track[7].time, 0)
+            self.assertEqual(track[5].time, 2)

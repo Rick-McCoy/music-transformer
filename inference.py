@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import hydra
 from hydra.utils import to_absolute_path
@@ -26,9 +27,9 @@ def find_best_checkpoint(checkpoint_dir: str) -> str:
 
             if min_val_loss > float(pairs["val_loss"]):
                 min_val_loss = float(pairs["val_loss"])
-                min_filename = os.path.join(dirpath, file)
+                min_filename = Path(dirpath, file)
 
-    return to_absolute_path(min_filename)
+    return to_absolute_path(str(min_filename))
 
 
 def top_p_sampling(logits: Tensor, prob: float = 0.9) -> Tensor:

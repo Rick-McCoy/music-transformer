@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import hydra
 from hydra.utils import to_absolute_path
@@ -57,8 +58,7 @@ def main(cfg: DictConfig = None) -> None:
     trainer.test(model=model, datamodule=datamodule)
 
     os.makedirs("onnx", exist_ok=True)
-    model.to_onnx(file_path=to_absolute_path(os.path.join(
-        "onnx", "model.onnx")),
+    model.to_onnx(file_path=to_absolute_path(Path("onnx", "model.onnx")),
                   export_params=True)
 
 
