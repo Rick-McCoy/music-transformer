@@ -7,7 +7,7 @@ from hydra.utils import to_absolute_path
 from mido.midifiles.midifiles import MidiFile
 import numpy as np
 
-from data.utils import MessageType, Note, Tokenizer, read_midi, prepare_data, write_midi
+from data.utils import MessageType, Event, Tokenizer, read_midi, prepare_data, write_midi
 
 
 class TestDataUtils(unittest.TestCase):
@@ -25,117 +25,196 @@ class TestDataUtils(unittest.TestCase):
 
     def test_read_midi(self):
         self.assertTrue(self.path_list)
-        valid_types = [MessageType.NOTE_OFF, MessageType.NOTE_ON]
+        valid_types = [
+            MessageType.NOTE_OFF, MessageType.NOTE_ON,
+            MessageType.CONTROL_CHANGE, MessageType.PITCHWHEEL
+        ]
         for path in self.path_list[:10]:
             filename = to_absolute_path(
                 Path(*self.cfg.data.data_dir, path.strip()))
-            notes = read_midi(MidiFile(filename=filename, clip=True))
+            events = read_midi(MidiFile(filename=filename, clip=True))
             prev_tick = 0
-            for note in notes:
-                self.assertIn(note.type, valid_types)
-                tick_delta = note.tick - prev_tick
+            for event in events:
+                self.assertIn(event.type, valid_types)
+                tick_delta = event.tick - prev_tick
                 self.assertGreaterEqual(tick_delta, 0)
-                prev_tick = note.tick
-                self.assertGreaterEqual(note.pitch, 0)
-                self.assertLess(note.pitch, self.cfg.model.num_pitch)
-                self.assertGreaterEqual(note.velocity, 0)
-                self.assertLess(note.velocity, self.cfg.model.num_velocity)
-                self.assertGreaterEqual(note.program, 0)
-                self.assertLess(note.program, self.cfg.model.num_program)
+                prev_tick = event.tick
+                self.assertGreaterEqual(event.program, 0)
+                self.assertLess(event.program, self.cfg.model.num_program)
+                if event.type == MessageType.NOTE_ON:
+                    self.assertGreaterEqual(event.note, 0)
+                    self.assertLess(event.note, self.cfg.model.num_note)
+                    self.assertGreaterEqual(event.velocity, 0)
+                    self.assertLess(event.velocity,
+                                    self.cfg.model.num_velocity)
+                    self.assertIsNone(event.control)
+                    self.assertIsNone(event.value)
+                    self.assertIsNone(event.pitch)
+                elif event.type == MessageType.NOTE_OFF:
+                    self.assertGreaterEqual(event.note, 0)
+                    self.assertLess(event.note, self.cfg.model.num_note)
+                    self.assertIsNone(event.velocity)
+                    self.assertIsNone(event.control)
+                    self.assertIsNone(event.value)
+                    self.assertIsNone(event.pitch)
+                elif event.type == MessageType.CONTROL_CHANGE:
+                    self.assertIsNone(event.note)
+                    self.assertIsNone(event.velocity)
+                    self.assertGreaterEqual(event.control, 0)
+                    self.assertLess(event.control, self.cfg.model.num_control)
+                    self.assertGreaterEqual(event.value, 0)
+                    self.assertLess(event.value, self.cfg.model.num_value)
+                    self.assertIsNone(event.pitch)
+                elif event.type == MessageType.PITCHWHEEL:
+                    self.assertIsNone(event.note)
+                    self.assertIsNone(event.velocity)
+                    self.assertIsNone(event.control)
+                    self.assertIsNone(event.value)
+                    self.assertGreaterEqual(event.pitch, -8192)
+                    self.assertLess(event.pitch, 8192)
 
     def test_tokenize(self):
-        note_list = []
-        note_list.append(
-            Note(message_type=MessageType.NOTE_ON,
-                 tick=0,
-                 pitch=64,
-                 velocity=64,
-                 program=0))
-        note_list.append(
-            Note(message_type=MessageType.NOTE_ON,
-                 tick=2,
-                 pitch=48,
-                 velocity=64,
-                 program=8))
-        note_list.append(
-            Note(message_type=MessageType.NOTE_OFF,
-                 tick=10,
-                 pitch=64,
-                 velocity=0,
-                 program=0))
-        note_list.append(
-            Note(message_type=MessageType.NOTE_OFF,
-                 tick=12,
-                 pitch=48,
-                 velocity=0,
-                 program=8))
-        tokens = self.tokenizer.tokenize(note_list)
+        event_list = []
+        event_list.append(
+            Event(message_type=MessageType.NOTE_ON,
+                  tick=0,
+                  note=64,
+                  velocity=64,
+                  program=0))
+        event_list.append(
+            Event(message_type=MessageType.NOTE_ON,
+                  tick=2,
+                  note=48,
+                  velocity=64,
+                  program=8))
+        event_list.append(
+            Event(message_type=MessageType.NOTE_OFF,
+                  tick=10,
+                  note=64,
+                  program=0))
+        event_list.append(
+            Event(message_type=MessageType.NOTE_OFF,
+                  tick=12,
+                  note=48,
+                  program=8))
+        event_list.append(
+            Event(message_type=MessageType.CONTROL_CHANGE,
+                  tick=14,
+                  control=64,
+                  value=64,
+                  program=0))
+        event_list.append(
+            Event(message_type=MessageType.PITCHWHEEL,
+                  tick=14,
+                  pitch=-1022,
+                  program=0))
+        tokens = self.tokenizer.tokenize(event_list)
         self.assertEqual(tokens[0], 1)
         self.assertEqual(tokens[1], 132)
-        self.assertEqual(tokens[2], 325)
-        self.assertEqual(tokens[3], 453)
+        self.assertEqual(tokens[2], 583)
+        self.assertEqual(tokens[3], 711)
         self.assertEqual(tokens[4], 140)
-        self.assertEqual(tokens[5], 309)
-        self.assertEqual(tokens[6], 453)
-        self.assertEqual(tokens[7], 518)
+        self.assertEqual(tokens[5], 567)
+        self.assertEqual(tokens[6], 711)
+        self.assertEqual(tokens[7], 1288)
         self.assertEqual(tokens[8], 3)
-        self.assertEqual(tokens[9], 325)
-        self.assertEqual(tokens[10], 524)
+        self.assertEqual(tokens[9], 583)
+        self.assertEqual(tokens[10], 1294)
         self.assertEqual(tokens[11], 11)
-        self.assertEqual(tokens[12], 309)
-        self.assertEqual(tokens[13], 518)
-        self.assertEqual(tokens[14], 2)
+        self.assertEqual(tokens[12], 567)
+        self.assertEqual(tokens[13], 1288)
+        self.assertEqual(tokens[14], 261)
+        self.assertEqual(tokens[15], 839)
+        self.assertEqual(tokens[16], 967)
+        self.assertEqual(tokens[17], 1288)
+        self.assertEqual(tokens[18], 390)
+        self.assertEqual(tokens[19], 1151)
+        self.assertEqual(tokens[20], 1161)
+        self.assertEqual(tokens[21], 2)
 
     def test_tokens_to_notes(self):
         tokens = np.array([
-            1, 132, 325, 453, 140, 309, 453, 518, 3, 325, 524, 11, 309, 518, 2
+            1, 132, 583, 711, 140, 567, 711, 1288, 3, 583, 1294, 11, 567, 1288,
+            261, 839, 967, 1288, 390, 1151, 1161, 2
         ],
                           dtype=np.int64)
-        note_list = self.tokenizer.tokens_to_notes(tokens)
-        self.assertEqual(note_list[0].tick, 0)
-        self.assertEqual(note_list[0].pitch, 64)
-        self.assertEqual(note_list[0].velocity, 64)
-        self.assertEqual(note_list[0].program, 0)
-        self.assertEqual(note_list[1].tick, 2)
-        self.assertEqual(note_list[1].pitch, 48)
-        self.assertEqual(note_list[1].velocity, 64)
-        self.assertEqual(note_list[1].program, 8)
-        self.assertEqual(note_list[2].tick, 10)
-        self.assertEqual(note_list[2].pitch, 64)
-        self.assertEqual(note_list[2].velocity, 0)
-        self.assertEqual(note_list[2].program, 0)
-        self.assertEqual(note_list[3].tick, 12)
-        self.assertEqual(note_list[3].pitch, 48)
-        self.assertEqual(note_list[3].velocity, 0)
-        self.assertEqual(note_list[3].program, 8)
+        event_list = self.tokenizer.tokens_to_events(tokens)
+        self.assertEqual(event_list[0].type, MessageType.NOTE_ON)
+        self.assertEqual(event_list[0].tick, 0)
+        self.assertEqual(event_list[0].note, 64)
+        self.assertEqual(event_list[0].velocity, 64)
+        self.assertIsNone(event_list[0].control)
+        self.assertIsNone(event_list[0].value)
+        self.assertIsNone(event_list[0].pitch)
+        self.assertEqual(event_list[0].program, 0)
+        self.assertEqual(event_list[1].type, MessageType.NOTE_ON)
+        self.assertEqual(event_list[1].tick, 2)
+        self.assertEqual(event_list[1].note, 48)
+        self.assertEqual(event_list[1].velocity, 64)
+        self.assertIsNone(event_list[1].control)
+        self.assertIsNone(event_list[1].value)
+        self.assertIsNone(event_list[1].pitch)
+        self.assertEqual(event_list[1].program, 8)
+        self.assertEqual(event_list[2].type, MessageType.NOTE_OFF)
+        self.assertEqual(event_list[2].tick, 10)
+        self.assertEqual(event_list[2].note, 64)
+        self.assertIsNone(event_list[2].velocity)
+        self.assertIsNone(event_list[2].control)
+        self.assertIsNone(event_list[2].value)
+        self.assertIsNone(event_list[2].pitch)
+        self.assertEqual(event_list[2].program, 0)
+        self.assertEqual(event_list[3].type, MessageType.NOTE_OFF)
+        self.assertEqual(event_list[3].tick, 12)
+        self.assertEqual(event_list[3].note, 48)
+        self.assertIsNone(event_list[3].velocity)
+        self.assertIsNone(event_list[3].control)
+        self.assertIsNone(event_list[3].value)
+        self.assertIsNone(event_list[3].pitch)
+        self.assertEqual(event_list[3].program, 8)
+        self.assertEqual(event_list[4].type, MessageType.CONTROL_CHANGE)
+        self.assertEqual(event_list[4].tick, 14)
+        self.assertIsNone(event_list[4].note)
+        self.assertIsNone(event_list[4].velocity)
+        self.assertEqual(event_list[4].control, 64)
+        self.assertEqual(event_list[4].value, 64)
+        self.assertIsNone(event_list[4].pitch)
+        self.assertEqual(event_list[4].program, 0)
+        self.assertEqual(event_list[5].type, MessageType.PITCHWHEEL)
+        self.assertEqual(event_list[5].tick, 14)
+        self.assertIsNone(event_list[5].note)
+        self.assertIsNone(event_list[5].velocity)
+        self.assertIsNone(event_list[5].control)
+        self.assertIsNone(event_list[5].value)
+        self.assertEqual(event_list[5].pitch, -1022)
+        self.assertEqual(event_list[5].program, 0)
 
     def test_write_midi(self):
-        note_list = []
-        note_list.append(
-            Note(message_type=MessageType.NOTE_ON,
-                 tick=0,
-                 pitch=64,
-                 velocity=64,
-                 program=0))
-        note_list.append(
-            Note(message_type=MessageType.NOTE_ON,
-                 tick=2,
-                 pitch=48,
-                 velocity=64,
-                 program=8))
-        note_list.append(
-            Note(message_type=MessageType.NOTE_OFF,
-                 tick=10,
-                 pitch=64,
-                 velocity=0,
-                 program=0))
-        note_list.append(
-            Note(message_type=MessageType.NOTE_OFF,
-                 tick=12,
-                 pitch=48,
-                 velocity=0,
-                 program=8))
-        midi_file = write_midi(note_list)
+        event_list = []
+        event_list.append(
+            Event(message_type=MessageType.NOTE_ON,
+                  tick=0,
+                  note=64,
+                  velocity=64,
+                  program=0))
+        event_list.append(
+            Event(message_type=MessageType.NOTE_ON,
+                  tick=2,
+                  note=48,
+                  velocity=64,
+                  program=8))
+        event_list.append(
+            Event(message_type=MessageType.NOTE_OFF,
+                  tick=10,
+                  note=64,
+                  velocity=0,
+                  program=0))
+        event_list.append(
+            Event(message_type=MessageType.NOTE_OFF,
+                  tick=12,
+                  note=48,
+                  velocity=0,
+                  program=8))
+        midi_file = write_midi(event_list)
         for track in midi_file.tracks:
             self.assertEqual(track[0].type, "program_change")
             self.assertEqual(track[0].channel, 0)

@@ -4,9 +4,13 @@ dropout: 0.1
 ff: 128
 nhead: 2
 num_layers: 2
-num_tick: 1024
-num_type: 2
-num_pitch: 128
 num_program: 129
+num_type: 4
+num_note: 128
 num_velocity: 128
-num_token: 1541
+num_control: 128
+num_value: 128
+num_pitch_1: 128
+num_pitch_2: 128
+num_tick: 1024
+num_token: 2308

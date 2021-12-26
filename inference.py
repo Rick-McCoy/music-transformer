@@ -77,16 +77,16 @@ def main(cfg: DictConfig = None) -> None:
             tokens = data[0].detach().cpu().numpy()
             if tokens[-1] < 3:
                 continue
-            note_list = tokenizer.tokens_to_notes(tokens)
-            midi_file = write_midi(note_list)
+            event_list = tokenizer.tokens_to_events(tokens)
+            midi_file = write_midi(event_list)
             midi_file.save(filename="input.mid")
             for _ in tqdm(range(cfg.model.data_len)):
                 output = model(data)[0, :, -1]
                 pred = top_p_sampling(output, prob=0.9).unsqueeze(dim=0)
                 data = torch.cat([data, pred], dim=-1)[:, 1:]
             tokens = data[0].detach().cpu().numpy()
-            note_list = tokenizer.tokens_to_notes(tokens)
-            midi_file = write_midi(note_list)
+            event_list = tokenizer.tokens_to_events(tokens)
+            midi_file = write_midi(event_list)
             midi_file.save(filename="results.mid")
             break
 
