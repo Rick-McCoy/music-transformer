@@ -1,3 +1,4 @@
+from copy import deepcopy
 from torch import nn, Tensor
 
 from model.embedding import Embedding
@@ -12,15 +13,14 @@ class Transformer(nn.Module):
         self.pos_encoding = PositionalEncoding(d_model=d_model,
                                                data_len=data_len,
                                                dropout=dropout)
-        self.transformer = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model=d_model,
-                                       nhead=nhead,
-                                       dim_feedforward=ff,
-                                       dropout=dropout,
-                                       batch_first=True,
-                                       norm_first=True),
-            num_layers=num_layers,
-            norm=nn.LayerNorm((d_model, )))
+        layer = nn.TransformerEncoderLayer(d_model=d_model,
+                                           nhead=nhead,
+                                           dim_feedforward=ff,
+                                           dropout=dropout,
+                                           batch_first=True,
+                                           norm_first=True)
+        self.layers = [deepcopy(layer) for _ in range(num_layers)]
+        self.norm = nn.LayerNorm((d_model, ))
         mask = nn.Transformer.generate_square_subsequent_mask(data_len)
         self.register_buffer("mask", mask)
         self.mask: Tensor
@@ -29,7 +29,9 @@ class Transformer(nn.Module):
     def forward(self, data: Tensor) -> Tensor:
         embedded = self.embedding(data)
         encoded = self.pos_encoding(embedded)
-        transformed = self.transformer(encoded, mask=self.mask)
+        for layer in self.layers:
+            encoded = layer(encoded, src_mask=self.mask)
+        transformed = self.norm(encoded)
         projected = self.linear(transformed)
         output = projected.permute([0, -1] +
                                    list(range(1, projected.ndim - 1)))
