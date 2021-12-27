@@ -32,6 +32,7 @@ def main(cfg: DictConfig = None) -> None:
                 monitor="val/loss",
                 save_top_k=3,
                 mode="min",
+                auto_insert_metric_name=False,
                 save_weights_only=True,
             ))
     if cfg.train.monitor:
