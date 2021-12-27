@@ -28,7 +28,7 @@ def main(cfg: DictConfig = None) -> None:
         callbacks.append(
             ModelCheckpoint(
                 dirpath=to_absolute_path("checkpoints"),
-                filename="{epoch}-{val_loss:.3f}",
+                filename="epoch={epoch}-val_loss={val/loss:.3f}",
                 monitor="val/loss",
                 save_top_k=3,
                 mode="min",
@@ -49,12 +49,15 @@ def main(cfg: DictConfig = None) -> None:
         limit_train_batches=cfg.train.limit_batches,
         limit_val_batches=cfg.train.limit_batches,
         limit_test_batches=cfg.train.limit_batches,
+        log_every_n_steps=1,
         logger=[logger],
         num_sanity_val_steps=2,
         precision=16,
     )
 
-    trainer.tune(model=model, datamodule=datamodule)
+    trainer.tune(model=model,
+                 datamodule=datamodule,
+                 lr_find_kwargs={"max_lr": 0.1})
     trainer.fit(model=model, datamodule=datamodule)
     trainer.test(model=model, datamodule=datamodule)
 
