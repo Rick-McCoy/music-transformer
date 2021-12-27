@@ -19,7 +19,8 @@ class Transformer(nn.Module):
                                            dropout=dropout,
                                            batch_first=True,
                                            norm_first=True)
-        self.layers = [deepcopy(layer) for _ in range(num_layers)]
+        self.layers = nn.ModuleList(
+            [deepcopy(layer) for _ in range(num_layers)])
         self.norm = nn.LayerNorm((d_model, ))
         mask = nn.Transformer.generate_square_subsequent_mask(data_len)
         self.register_buffer("mask", mask)
