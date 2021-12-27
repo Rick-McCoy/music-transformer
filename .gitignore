@@ -149,3 +149,4 @@ data/*.npz
 checkpoints/
 onnx/
 temp.py
+wandb/

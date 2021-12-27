@@ -5,6 +5,7 @@ batch_size: 8
 checkpoint: True
 fast_dev_run: False
 gpus: -1
+limit_batches: 1.0
 lr: 0.0001
 monitor: False
 num_workers: 12

@@ -32,24 +32,24 @@ class MusicModel(LightningModule):
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         self.acc(output, batch[:, 1:])
-        self.log("train_loss", loss)
-        self.log("train_acc", self.acc)
+        self.log("train/loss", loss)
+        self.log("train/acc", self.acc)
         return loss
 
     def validation_step(self, batch: Tensor, *args, **kwargs) -> Tensor:
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         self.acc(output, batch[:, 1:])
-        self.log("val_loss", loss)
-        self.log("val_acc", self.acc)
+        self.log("val/loss", loss)
+        self.log("val/acc", self.acc)
         return loss
 
     def test_step(self, batch: Tensor, *args, **kwargs) -> Tensor:
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         self.acc(output, batch[:, 1:])
-        self.log("test_loss", loss)
-        self.log("test_acc", self.acc)
+        self.log("test/loss", loss)
+        self.log("test/acc", self.acc)
         return loss
 
     def configure_optimizers(self):

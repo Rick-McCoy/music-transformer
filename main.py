@@ -5,7 +5,7 @@ import hydra
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import DeviceStatsMonitor, ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.trainer import Trainer
 
 from data.datamodule import MusicDataModule
@@ -29,17 +29,14 @@ def main(cfg: DictConfig = None) -> None:
             ModelCheckpoint(
                 dirpath=to_absolute_path("checkpoints"),
                 filename="{epoch}-{val_loss:.3f}",
-                monitor="val_loss",
+                monitor="val/loss",
                 save_top_k=3,
                 mode="min",
                 save_weights_only=True,
             ))
     if cfg.train.monitor:
         callbacks.append(DeviceStatsMonitor())
-    logger = TensorBoardLogger(save_dir=to_absolute_path("log"),
-                               name=cfg.name,
-                               log_graph=True,
-                               default_hp_metric=False)
+    logger = WandbLogger(project="music-model", save_dir=to_absolute_path("."))
     trainer = Trainer(
         accelerator="auto",
         accumulate_grad_batches=cfg.train.acc,
@@ -49,8 +46,12 @@ def main(cfg: DictConfig = None) -> None:
         detect_anomaly=True,
         devices="auto",
         fast_dev_run=cfg.train.fast_dev_run,
+        limit_train_batches=cfg.train.limit_batches,
+        limit_val_batches=cfg.train.limit_batches,
+        limit_test_batches=cfg.train.limit_batches,
         logger=[logger],
         num_sanity_val_steps=2,
+        precision=16,
     )
 
     trainer.tune(model=model, datamodule=datamodule)
