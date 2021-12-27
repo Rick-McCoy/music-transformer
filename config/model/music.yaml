@@ -4,6 +4,7 @@ dropout: 0.1
 ff: 128
 nhead: 2
 num_layers: 2
+num_special: 3
 num_program: 129
 num_type: 4
 num_note: 128

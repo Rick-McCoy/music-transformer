@@ -107,7 +107,7 @@ class Tokenizer:
         self.num_pitch_1 = cfg.model.num_pitch_1
         self.num_pitch_2 = cfg.model.num_pitch_2
         self.num_tick = cfg.model.num_tick
-        self.special_limit = 3
+        self.special_limit = cfg.model.num_special
         self.program_type_limit = self.special_limit + self.num_program_type
         self.note_limit = self.program_type_limit + self.num_note
         self.velocity_limit = self.note_limit + self.num_velocity

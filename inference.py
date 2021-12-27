@@ -75,7 +75,7 @@ def main(cfg: DictConfig = None) -> None:
             batch = batch.cuda()
             data = batch[:1, 1:]
             tokens = data[0].detach().cpu().numpy()
-            if tokens[-1] < 3:
+            if tokens[-1] < cfg.model.num_special:
                 continue
             event_list = tokenizer.tokens_to_events(tokens)
             midi_file = write_midi(event_list)
