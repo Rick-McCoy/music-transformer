@@ -61,7 +61,7 @@ def main(cfg: DictConfig = None) -> None:
     trainer.fit(model=model, datamodule=datamodule)
     trainer.test(model=model, datamodule=datamodule)
 
-    os.makedirs("onnx", exist_ok=True)
+    os.makedirs(to_absolute_path("onnx"), exist_ok=True)
     model.to_onnx(file_path=to_absolute_path(Path("onnx", "model.onnx")),
                   export_params=True)
 
