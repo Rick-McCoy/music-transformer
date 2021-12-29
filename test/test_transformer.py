@@ -17,7 +17,8 @@ class TestTransformer(unittest.TestCase):
                                            ff=cfg.model.ff,
                                            nhead=cfg.model.nhead,
                                            num_layers=cfg.model.num_layers,
-                                           num_token=cfg.model.num_token)
+                                           num_token=cfg.model.num_token,
+                                           segments=cfg.model.segments)
 
     def test_transformer(self):
         data = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)

@@ -21,7 +21,8 @@ def main(cfg: DictConfig = None) -> None:
                        lr=cfg.train.lr,
                        nhead=cfg.model.nhead,
                        num_layers=cfg.model.num_layers,
-                       num_token=cfg.model.num_token)
+                       num_token=cfg.model.num_token,
+                       segments=cfg.model.segments)
     datamodule = MusicDataModule(cfg)
     callbacks = []
     if cfg.train.checkpoint:
@@ -58,7 +59,7 @@ def main(cfg: DictConfig = None) -> None:
 
     trainer.tune(model=model,
                  datamodule=datamodule,
-                 lr_find_kwargs={"max_lr": 0.1})
+                 lr_find_kwargs={"max_lr": 0.01})
     trainer.fit(model=model, datamodule=datamodule)
     trainer.test(model=model, datamodule=datamodule)
 
