@@ -19,16 +19,16 @@ if __name__ == "__main__":
     config = wandb.config
     with initialize(config_path="config"):
         segments = round(math.sqrt(config.num_layers))
-        cfg = compose(config_name="config",
-                      overrides=[
-                          "train.gpus=1", "train.limit_batches=0.1",
-                          "train.max_time=\"00:12:00:00\"",
-                          f"model.d_model={config.d_model}",
-                          f"model.data_len={config.data_len}",
-                          f"model.dropout={config.dropout}",
-                          f"model.ff={config.ff}",
-                          f"model.nhead={config.nhead}",
-                          f"model.num_layers={config.num_layers}",
-                          f"model.segments={segments}"
-                      ])
+        cfg = compose(
+            config_name="config",
+            overrides=[
+                "train.acc=8", "train.batch_size=8", "train.gpus=1",
+                "train.limit_batches=0.1", "train.max_time=\"00:12:00:00\"",
+                f"model.d_model={config.d_model}",
+                f"model.data_len={config.data_len}",
+                f"model.dropout={config.dropout}", f"model.ff={config.ff}",
+                f"model.nhead={config.nhead}",
+                f"model.num_layers={config.num_layers}",
+                f"model.segments={segments}"
+            ])
         main(cfg)
