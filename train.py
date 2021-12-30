@@ -8,6 +8,12 @@ from main import main
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--d_model", type=int)
+    parser.add_argument("--data_len", type=int)
+    parser.add_argument("--dropout", type=int)
+    parser.add_argument("--ff", type=int)
+    parser.add_argument("--nhead", type=int)
+    parser.add_argument("--num_layers", type=int)
     args = parser.parse_args()
     wandb.init(config=args)
     config = wandb.config
