@@ -7,6 +7,7 @@ from omegaconf import DictConfig
 from pytorch_lightning.callbacks import DeviceStatsMonitor, EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.trainer import Trainer
+import torch
 
 from data.datamodule import MusicDataModule
 from model.model import MusicModel
@@ -62,15 +63,19 @@ def main(cfg: DictConfig = None) -> None:
         precision=16,
     )
 
-    trainer.tune(model=model,
-                 datamodule=datamodule,
-                 lr_find_kwargs={"max_lr": 0.01})
-    trainer.fit(model=model, datamodule=datamodule)
-    trainer.test(model=model, datamodule=datamodule)
+    try:
+        trainer.tune(model=model,
+                     datamodule=datamodule,
+                     lr_find_kwargs={"max_lr": 0.01})
+        trainer.fit(model=model, datamodule=datamodule)
+        trainer.test(model=model, datamodule=datamodule)
 
-    os.makedirs(to_absolute_path("onnx"), exist_ok=True)
-    model.to_onnx(file_path=to_absolute_path(Path("onnx", "model.onnx")),
-                  export_params=True)
+        os.makedirs(to_absolute_path("onnx"), exist_ok=True)
+        model.to_onnx(file_path=to_absolute_path(Path("onnx", "model.onnx")),
+                      export_params=True)
+    except RuntimeError:
+        torch.cuda.empty_cache()
+        trainer.test(model=model, datamodule=datamodule)
 
 
 if __name__ == "__main__":
