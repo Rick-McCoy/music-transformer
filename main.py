@@ -39,6 +39,7 @@ def main(cfg: DictConfig = None) -> None:
     if cfg.train.monitor:
         callbacks.append(DeviceStatsMonitor())
     logger = WandbLogger(project="music-model", save_dir=to_absolute_path("."))
+    devices = "auto" if cfg.train.gpus == -1 else cfg.train.gpus
     trainer = Trainer(
         accelerator="auto",
         accumulate_grad_batches=cfg.train.acc,
@@ -46,7 +47,7 @@ def main(cfg: DictConfig = None) -> None:
         auto_scale_batch_size=cfg.train.auto_batch,
         callbacks=callbacks,
         detect_anomaly=True,
-        devices="auto",
+        devices=devices,
         fast_dev_run=cfg.train.fast_dev_run,
         limit_train_batches=cfg.train.limit_batches,
         limit_val_batches=cfg.train.limit_batches,
