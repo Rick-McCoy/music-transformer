@@ -29,6 +29,9 @@ class MusicModel(LightningModule):
     def forward(self, data: Tensor, *args, **kwargs) -> Tensor:
         return self.transformer(data)
 
+    def on_train_start(self) -> None:
+        self.logger.log_hyperparams(params={"lr": self.hparams.lr})
+
     def training_step(self, batch: Tensor, *args, **kwargs) -> Tensor:
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
