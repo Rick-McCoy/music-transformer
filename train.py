@@ -21,7 +21,8 @@ if __name__ == "__main__":
         segments = round(math.sqrt(config.num_layers))
         cfg = compose(config_name="config",
                       overrides=[
-                          "train.gpus=1", f"model.d_model={config.d_model}",
+                          "train.gpus=1", "train.limit_batches=0.1",
+                          f"model.d_model={config.d_model}",
                           f"model.data_len={config.data_len}",
                           f"model.dropout={config.dropout}",
                           f"model.ff={config.ff}",
