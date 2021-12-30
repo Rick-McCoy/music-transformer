@@ -150,3 +150,4 @@ checkpoints/
 onnx/
 temp.py
 wandb/
+*.ckpt
