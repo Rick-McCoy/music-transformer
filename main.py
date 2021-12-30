@@ -4,7 +4,7 @@ from pathlib import Path
 import hydra
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
-from pytorch_lightning.callbacks import DeviceStatsMonitor, ModelCheckpoint
+from pytorch_lightning.callbacks import DeviceStatsMonitor, EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.trainer import Trainer
 
@@ -38,8 +38,11 @@ def main(cfg: DictConfig = None) -> None:
             ))
     if cfg.train.monitor:
         callbacks.append(DeviceStatsMonitor())
+    if cfg.train.early_stopping:
+        callbacks.append(EarlyStopping(monitor="val/loss", mode="min"))
     logger = WandbLogger(project="music-model", save_dir=to_absolute_path("."))
     devices = "auto" if cfg.train.gpus == -1 else cfg.train.gpus
+    max_time = None if cfg.train.max_time == "" else cfg.train.max_time
     trainer = Trainer(
         accelerator="auto",
         accumulate_grad_batches=cfg.train.acc,
@@ -54,6 +57,7 @@ def main(cfg: DictConfig = None) -> None:
         limit_test_batches=cfg.train.limit_batches,
         log_every_n_steps=1,
         logger=[logger],
+        max_time=max_time,
         num_sanity_val_steps=2,
         precision=16,
     )
