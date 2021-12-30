@@ -74,6 +74,7 @@ def main(cfg: DictConfig = None) -> None:
         model.to_onnx(file_path=to_absolute_path(Path("onnx", "model.onnx")),
                       export_params=True)
     except RuntimeError:
+        os.remove("*.ckpt")
         for parameter in model.parameters():
             if parameter.grad is not None:
                 del parameter.grad
