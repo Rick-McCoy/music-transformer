@@ -42,6 +42,7 @@ def main(cfg: DictConfig = None) -> None:
 
     if cfg.train.effective_batch_size > 0:
         accumulate = cfg.train.effective_batch_size // batch_size
+        accumulate = max(accumulate, 1)
     else:
         accumulate = cfg.train.acc
 
