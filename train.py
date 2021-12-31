@@ -22,9 +22,9 @@ if __name__ == "__main__":
         cfg = compose(
             config_name="config",
             overrides=[
-                "train.acc=8", "train.batch_size=8", "train.gpus=1",
-                "train.limit_batches=0.1", "train.max_time=\"00:12:00:00\"",
-                f"model.d_model={config.d_model}",
+                "train.auto_batch=True", "train.auto_lr=True",
+                "train.effective_batch_size=64", "train.gpus=1",
+                "train.limit_batches=0.1", f"model.d_model={config.d_model}",
                 f"model.data_len={config.data_len}",
                 f"model.dropout={config.dropout}", f"model.ff={config.ff}",
                 f"model.nhead={config.nhead}",
