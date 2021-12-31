@@ -1,3 +1,4 @@
+import math
 import os
 from pathlib import Path
 
@@ -79,7 +80,12 @@ def main(cfg: DictConfig = None) -> None:
                 del parameter.grad
         model.zero_grad(set_to_none=True)
         torch.cuda.empty_cache()
-        trainer.test(model=model, datamodule=datamodule)
+        try:
+            trainer.validate(model=model, datamodule=datamodule)
+        except RuntimeError:
+            logger.log_metrics(
+                metrics={"val/loss": math.log(cfg.model.num_tokens)})
+            trainer.teardown()
 
 
 if __name__ == "__main__":
