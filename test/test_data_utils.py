@@ -74,6 +74,12 @@ class TestDataUtils(unittest.TestCase):
                     self.assertLess(event.pitch, 8192)
 
     def test_tokenize(self):
+        self.assertEqual(
+            self.cfg.model.num_special + self.cfg.model.num_program +
+            self.cfg.model.num_note + self.cfg.model.num_velocity +
+            self.cfg.model.num_control + self.cfg.model.num_value +
+            self.cfg.model.num_pitch_1 + self.cfg.model.num_pitch_2 +
+            self.cfg.model.num_tick, self.cfg.model.num_token)
         event_list = []
         event_list.append(
             Event(message_type=MessageType.NOTE_ON,
@@ -110,32 +116,32 @@ class TestDataUtils(unittest.TestCase):
                   program=0))
         tokens = self.tokenizer.tokenize(event_list)
         self.assertEqual(tokens[0], 1)
-        self.assertEqual(tokens[1], 132)
-        self.assertEqual(tokens[2], 583)
-        self.assertEqual(tokens[3], 711)
-        self.assertEqual(tokens[4], 140)
-        self.assertEqual(tokens[5], 567)
-        self.assertEqual(tokens[6], 711)
-        self.assertEqual(tokens[7], 1288)
+        self.assertEqual(tokens[1], 3)
+        self.assertEqual(tokens[2], 196)
+        self.assertEqual(tokens[3], 452)
+        self.assertEqual(tokens[4], 11)
+        self.assertEqual(tokens[5], 180)
+        self.assertEqual(tokens[6], 452)
+        self.assertEqual(tokens[7], 1029)
         self.assertEqual(tokens[8], 3)
-        self.assertEqual(tokens[9], 583)
-        self.assertEqual(tokens[10], 1294)
+        self.assertEqual(tokens[9], 324)
+        self.assertEqual(tokens[10], 1035)
         self.assertEqual(tokens[11], 11)
-        self.assertEqual(tokens[12], 567)
-        self.assertEqual(tokens[13], 1288)
-        self.assertEqual(tokens[14], 261)
-        self.assertEqual(tokens[15], 839)
-        self.assertEqual(tokens[16], 967)
-        self.assertEqual(tokens[17], 1288)
-        self.assertEqual(tokens[18], 390)
-        self.assertEqual(tokens[19], 1151)
-        self.assertEqual(tokens[20], 1161)
+        self.assertEqual(tokens[12], 308)
+        self.assertEqual(tokens[13], 1029)
+        self.assertEqual(tokens[14], 3)
+        self.assertEqual(tokens[15], 580)
+        self.assertEqual(tokens[16], 708)
+        self.assertEqual(tokens[17], 1029)
+        self.assertEqual(tokens[18], 3)
+        self.assertEqual(tokens[19], 828)
+        self.assertEqual(tokens[20], 902)
         self.assertEqual(tokens[21], 2)
 
     def test_tokens_to_notes(self):
         tokens = np.array([
-            1, 132, 583, 711, 140, 567, 711, 1288, 3, 583, 1294, 11, 567, 1288,
-            261, 839, 967, 1288, 390, 1151, 1161, 2
+            1, 3, 196, 452, 11, 180, 452, 1029, 3, 324, 1035, 11, 308, 1029, 3,
+            580, 708, 1029, 3, 828, 902, 2
         ],
                           dtype=np.int64)
         event_list = self.tokenizer.tokens_to_events(tokens)

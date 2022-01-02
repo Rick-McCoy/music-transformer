@@ -74,7 +74,7 @@ class MessageType(IntEnum):
 
 class Event:
     def __init__(self,
-                 message_type: MessageType,
+                 message_type: Optional[MessageType],
                  tick: int,
                  program: int,
                  note: Optional[int] = None,
@@ -98,8 +98,6 @@ class Tokenizer:
         self.begin = 1
         self.end = 2
         self.num_program = cfg.model.num_program
-        self.num_type = cfg.model.num_type
-        self.num_program_type = self.num_program * self.num_type
         self.num_note = cfg.model.num_note
         self.num_velocity = cfg.model.num_velocity
         self.num_control = cfg.model.num_control
@@ -108,8 +106,8 @@ class Tokenizer:
         self.num_pitch_2 = cfg.model.num_pitch_2
         self.num_tick = cfg.model.num_tick
         self.special_limit = cfg.model.num_special
-        self.program_type_limit = self.special_limit + self.num_program_type
-        self.note_limit = self.program_type_limit + self.num_note
+        self.program_limit = self.special_limit + self.num_program
+        self.note_limit = self.program_limit + self.num_note
         self.velocity_limit = self.note_limit + self.num_velocity
         self.control_limit = self.velocity_limit + self.num_control
         self.value_limit = self.control_limit + self.num_value
@@ -124,19 +122,19 @@ class Tokenizer:
         }
         self.type_lookup = {value: key for key, value in self.type_map.items()}
 
-    def program_type_to_token(self, program: int,
-                              message_type: MessageType) -> int:
+    def program_to_token(self, program: int) -> int:
         if 0 > program or program >= self.num_program:
             raise InvalidProgramError
-        if message_type not in self.type_map:
-            raise InvalidTypeError
-        return self.type_map[
-            message_type] * self.num_program + program + self.special_limit
+        return program + self.special_limit
 
-    def note_to_token(self, note: int) -> int:
+    def note_to_token(self, note: int, message_type: MessageType) -> int:
         if 0 > note or note >= self.num_note:
             raise InvalidNoteError
-        return note + self.program_type_limit
+        if message_type == MessageType.NOTE_ON:
+            return note + self.program_limit
+        if message_type == MessageType.NOTE_OFF:
+            return note + 128 + self.program_limit
+        raise InvalidTypeError
 
     def velocity_to_token(self, velocity: int) -> int:
         if 0 > velocity or velocity >= self.num_velocity:
@@ -156,6 +154,7 @@ class Tokenizer:
     def pitch_to_token(self, pitch: int) -> Tuple[int, int]:
         if -8192 > pitch or pitch > 8191:
             raise InvalidPitchError
+        pitch += 8192
         pitch_1 = (pitch >> 7) & 127
         pitch_2 = pitch & 127
         return pitch_1 + self.value_limit, pitch_2 + self.pitch_1_limit
@@ -169,10 +168,9 @@ class Tokenizer:
         token_list = [self.begin]
         prev_tick = 0
         for event in event_list:
-            token_list.append(
-                self.program_type_to_token(event.program, event.type))
+            token_list.append(self.program_to_token(event.program))
             if event.note is not None:
-                token_list.append(self.note_to_token(event.note))
+                token_list.append(self.note_to_token(event.note, event.type))
             if event.velocity is not None:
                 token_list.append(self.velocity_to_token(event.velocity))
             if event.control is not None:
@@ -196,18 +194,16 @@ class Tokenizer:
         for token in tokens:
             if token < self.special_limit:
                 continue
-            if token < self.program_type_limit:
-                message_type = self.type_lookup[(token - self.special_limit) //
-                                                self.num_program]
-                program = (token - self.special_limit) % self.num_program
+            if token < self.program_limit:
+                program = token - self.special_limit
                 event_list.append(
-                    Event(message_type=message_type,
-                          tick=prev_tick,
-                          program=program))
+                    Event(message_type=None, tick=prev_tick, program=program))
             elif token < self.note_limit:
-                note = token - self.program_type_limit
+                note = token - self.program_limit
+                message_type = MessageType.NOTE_ON if note < 128 else MessageType.NOTE_OFF
                 if event_list:
-                    event_list[-1].note = note
+                    event_list[-1].type = message_type
+                    event_list[-1].note = note % 128
             elif token < self.velocity_limit:
                 velocity = token - self.note_limit
                 if event_list:
@@ -215,6 +211,7 @@ class Tokenizer:
             elif token < self.control_limit:
                 control = token - self.velocity_limit
                 if event_list:
+                    event_list[-1].type = MessageType.CONTROL_CHANGE
                     event_list[-1].control = control
             elif token < self.value_limit:
                 value = token - self.control_limit
@@ -225,10 +222,9 @@ class Tokenizer:
             elif token < self.pitch_2_limit:
                 pitch_2 = token - self.pitch_1_limit
                 if pitch_1 >= 0:
-                    pitch = (pitch_1 << 7) + pitch_2
-                    if pitch >> 13:
-                        pitch |= -8192
+                    pitch = (pitch_1 << 7) + pitch_2 - 8192
                     if event_list:
+                        event_list[-1].type = MessageType.PITCHWHEEL
                         event_list[-1].pitch = pitch
                     pitch_1 = -1
             elif token < self.tick_limit:
