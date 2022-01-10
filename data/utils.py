@@ -352,7 +352,6 @@ def write_midi(event_list: List[Event]) -> MidiFile:
                     Message("note_off",
                             channel=channel,
                             note=event.note,
-                            velocity=event.velocity,
                             time=event.tick - prev_tick))
             elif event.type == MessageType.NOTE_ON:
                 track.append(
