@@ -18,16 +18,11 @@ class MusicDataset(Dataset):
     Reads data from preprocessed files.
 
     Args:
-        num_special: Number of special tokens (required).
         data_len: Length of data (required).
         augment: Whether to augment data (required).
-        note_shift: Maximum note shift augmentation (required).
-        velocity_scale: Maximum velocity scale augmentation (required).
-        time_scale: Maximum time scale augmentation (required).
-        num_note: Number of notes (required).
-        num_velocity: Number of velocities (required).
         path_list: List of paths to preprocessed files (required).
-        process_dir: Directory of preprocessed files (required)."""
+        process_dir: Directory of preprocessed files (required).
+        modifier: Modifier instance (required)."""
     def __init__(self, data_len: int, augment: bool, path_list: List[str],
                  process_dir: str, modifier: Modifier):
         super().__init__()
@@ -94,15 +89,9 @@ class MusicDataModule(LightningDataModule):
         text_dir: Directory of `midi.txt` (required).
         process_dir: Directory of preprocessed files (required).
         num_workers: Number of workers to use for multiprocessing (required).
-        data_len:
-        augment:
-        num_special: Number of special tokens (required).
-        num_program:
-        num_note:
-        num_velocity:
-        num_time_num:
-        note_shift:
-        velocity_scale:"""
+        data_len: Length of data (required).
+        augment: Whether to augment data (required).
+        modifier: Modifier instance (required)."""
     def __init__(
         self,
         batch_size: int,
