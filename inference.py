@@ -148,16 +148,10 @@ def main(cfg: DictConfig = None) -> None:
     model.cuda()
     # Disable gradient calculation
     with torch.no_grad():
-        batch = next(iter(dataloader))
-        # Slice batch
-        batch = batch[:cfg.model.data_len]
-    with torch.no_grad():
         # Get batch
         batch = next(iter(dataloader))
         # Move batch to GPU
-        batch = batch.cuda()
-        # Slice batch
-        data = batch[:, :cfg.model.data_len]
+        data = batch.cuda()
         # Convert data to tokens
         tokens = modifier.unflatten(data[0].detach().cpu().numpy())
         # Save tokens
@@ -177,8 +171,6 @@ def main(cfg: DictConfig = None) -> None:
             index = top_p_sampling(logit, prob=0.9)
             # Concate index to data
             data = torch.cat((data, index.unsqueeze(dim=0)), dim=1)
-            # Slice data
-            data = data[:, -cfg.model.data_len:]
 
         # Convert data to tokens
         tokens = modifier.unflatten(data[0].detach().cpu().numpy())
