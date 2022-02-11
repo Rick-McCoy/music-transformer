@@ -87,6 +87,8 @@ class Transformer(nn.Module):
                 ... )
             >>> output = transformer(data)"""
 
+        # Get sequence length
+        seq_len = data.shape[1]
         # Embed input
         embed = self.embed(data)
         # Pass through bottleneck
@@ -94,13 +96,12 @@ class Transformer(nn.Module):
         # Generate temporal data
         temporal = torch.arange(
             start=0,
-            end=self.data_len,
+            end=seq_len,
             step=1,
             dtype=torch.float32,
             device=bottleneck.device,
         ).unsqueeze(dim=0).repeat((embed.size(0), 1))
-        # Generate mask
-        seq_len = embed.shape[1]
+        # Get mask
         if seq_len > self.data_len:
             mask = nn.Transformer.generate_square_subsequent_mask(seq_len)
             mask = mask.to(bottleneck.device)

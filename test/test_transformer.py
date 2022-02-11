@@ -34,3 +34,7 @@ class TestTransformer(unittest.TestCase):
         output = self.transformer(data)
         self.assertEqual(output.size(),
                          (8, self.num_token, self.cfg.model.data_len))
+        data = torch.ones(8, self.cfg.model.data_len * 2, dtype=torch.int64)
+        output = self.transformer(data)
+        self.assertEqual(output.size(),
+                         (8, self.num_token, self.cfg.model.data_len * 2))
