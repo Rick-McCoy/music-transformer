@@ -3,15 +3,6 @@ data_len: 256
 dropout: 0.1
 ff: 128
 nhead: 2
-num_layers: 2
-num_special: 3
-num_program: 129
-num_note: 256
-num_velocity: 128
-num_control: 128
-num_value: 128
-num_pitch_1: 128
-num_pitch_2: 128
-num_tick: 1024
+num_layer: 2
 num_token: 2052
 segments: 2

@@ -1,90 +1,190 @@
+"""Implements Dataset and DataModule classes."""
 from pathlib import Path
-import random
 from typing import List, Optional
 
 from hydra.utils import to_absolute_path
 import numpy as np
 from numpy import ndarray
-from omegaconf.dictconfig import DictConfig
 from pytorch_lightning import LightningDataModule
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset, random_split
 
-from data.utils import prepare_data
+from data.utils import Modifier, process_tokens
 
 
 class MusicDataset(Dataset):
-    def __init__(self, cfg: DictConfig, path_list: List[str],
-                 process_dir: str) -> None:
+    """Music dataset class.
+
+    Reads data from preprocessed files.
+
+    Args:
+        num_special: Number of special tokens (required).
+        data_len: Length of data (required).
+        augment: Whether to augment data (required).
+        note_shift: Maximum note shift augmentation (required).
+        velocity_scale: Maximum velocity scale augmentation (required).
+        time_scale: Maximum time scale augmentation (required).
+        num_note: Number of notes (required).
+        num_velocity: Number of velocities (required).
+        path_list: List of paths to preprocessed files (required).
+        process_dir: Directory of preprocessed files (required)."""
+    def __init__(self, data_len: int, augment: bool, path_list: List[str],
+                 process_dir: str, modifier: Modifier):
         super().__init__()
-        self.cfg = cfg
-        self.length = cfg.model.data_len + 1
+        self.pad = 0
+        self.begin = 1
+        self.end = 2
+        self.length = data_len + 1
+        self.augment = augment
         self.path_list = path_list
         self.process_dir = process_dir
+        self.modifier = modifier
 
     def __getitem__(self, index: int) -> ndarray:
-        path = Path(self.process_dir,
-                    self.path_list[index]).with_suffix(".npy")
-        data = np.load(path).astype(np.int64)
-        orig_len = data.shape[0]
-        if self.length > orig_len:
-            return np.pad(data, (0, self.length - orig_len),
-                          mode="constant",
-                          constant_values=0)
-        random_index = random.randint(0, orig_len - self.length)
-        return data[random_index:random_index + self.length]
+        """Get item corresponding to index.
+
+        Extracts numpy array of tokens from preprocessed .npy file.
+        Augments tokens if self.augment is True.
+        Adds offset to tokens.
+        Flattens tokens into 1D, removing zero velocity from NOTE_OFF events and
+        removing zero delta time.
+        Bookend tokens with START and END tokens.
+        If the length of the tokens array is less than self.length, the tokens
+        array is padded with PAD.
+        PAD, START, END are defined as 0, 1, 2 respectively.
+
+        Args:
+            index: Index of item (required).
+
+        Returns:
+            Numpy array of tokens.
+
+        Shape:
+            tokens: (self.length,)"""
+
+        # Get filename of preprocessed file.
+        filename = Path(self.process_dir,
+                        self.path_list[index]).with_suffix(".npy")
+        # Load preprocessed file.
+        tokens = np.load(filename).astype(np.int64)
+        # Augment tokens if self.augment is True.
+        if self.augment:
+            tokens = self.modifier.augment(tokens)
+        # Flatten tokens.
+        tokens = self.modifier.flatten(tokens)
+        # Pad tokens
+        tokens = self.modifier.pad_or_slice(tokens, self.length)
+
+        # Return tokens
+        return tokens
 
     def __len__(self):
+        """Get length of dataset."""
         return len(self.path_list)
 
 
 class MusicDataModule(LightningDataModule):
-    def __init__(self, cfg: DictConfig):
+    """Music DataModule class.
+
+    Handles minutia of setting up datasets.
+
+    Args:
+        batch_size: Batch size (required).
+        data_dir: Directory of MIDI files (required).
+        text_dir: Directory of `midi.txt` (required).
+        process_dir: Directory of preprocessed files (required).
+        num_workers: Number of workers to use for multiprocessing (required).
+        data_len:
+        augment:
+        num_special: Number of special tokens (required).
+        num_program:
+        num_note:
+        num_velocity:
+        num_time_num:
+        note_shift:
+        velocity_scale:"""
+    def __init__(
+        self,
+        batch_size: int,
+        data_dir: Path,
+        text_dir: Path,
+        process_dir: Path,
+        num_workers: int,
+        data_len: int,
+        augment: bool,
+        modifier: Modifier,
+    ):
         super().__init__()
-        self.cfg = cfg
-        self.batch_size = cfg.train.batch_size
+        self.batch_size = batch_size
+        self.rng = np.random.default_rng()
+        self.num_workers = num_workers
+        self.data_dir = data_dir
+        self.text_dir = text_dir
+        self.process_dir = process_dir
+        self.data_len = data_len
+        self.augment = augment
+        self.modifier = modifier
         self.train_dataset: Optional[Dataset] = None
         self.val_dataset: Optional[Dataset] = None
         self.test_dataset: Optional[Dataset] = None
 
     def prepare_data(self) -> None:
-        prepare_data(self.cfg)
+        process_tokens(self.data_dir, self.text_dir, self.process_dir)
 
     def setup(self, stage: Optional[str] = None) -> None:
-        file_path = to_absolute_path(Path(*self.cfg.data.file_dir, "midi.txt"))
+        file_path = to_absolute_path(self.text_dir / "midi.txt")
         with open(file_path, mode="r", encoding="utf-8") as file:
             path_list = file.readlines()
-        random.shuffle(path_list)
+        self.rng.shuffle(path_list)
         val_len = test_len = int(len(path_list) * 0.1)
         train_len = len(path_list) - val_len - test_len
         full_path_list = path_list[:-test_len]
         test_path_list = path_list[-test_len:]
-        process_dir = to_absolute_path(Path(*self.cfg.data.process_dir))
+
         if stage == "fit" or stage == "validate" or stage is None:
-            full_dataset = MusicDataset(self.cfg, full_path_list, process_dir)
+            full_dataset = MusicDataset(
+                data_len=self.data_len,
+                augment=self.augment,
+                path_list=full_path_list,
+                process_dir=self.process_dir,
+                modifier=self.modifier,
+            )
             self.train_dataset, self.val_dataset = random_split(
-                full_dataset, [train_len, val_len])
+                full_dataset,
+                [train_len, val_len],
+            )
         if stage == "test" or stage == "predict" or stage is None:
-            self.test_dataset = MusicDataset(self.cfg, test_path_list,
-                                             process_dir)
+            self.test_dataset = MusicDataset(
+                data_len=self.data_len,
+                augment=self.augment,
+                path_list=test_path_list,
+                process_dir=self.process_dir,
+                modifier=self.modifier,
+            )
 
     def train_dataloader(self) -> DataLoader:
-        return DataLoader(self.train_dataset,
-                          batch_size=self.batch_size,
-                          shuffle=True,
-                          num_workers=self.cfg.train.num_workers,
-                          pin_memory=True)
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            pin_memory=True,
+        )
 
     def val_dataloader(self) -> DataLoader:
-        return DataLoader(self.val_dataset,
-                          batch_size=self.batch_size,
-                          shuffle=False,
-                          num_workers=self.cfg.train.num_workers,
-                          pin_memory=True)
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=True,
+        )
 
     def test_dataloader(self) -> DataLoader:
-        return DataLoader(self.test_dataset,
-                          batch_size=self.batch_size,
-                          shuffle=False,
-                          num_workers=self.cfg.train.num_workers,
-                          pin_memory=True)
+        return DataLoader(
+            self.test_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=True,
+        )

@@ -1,55 +1,121 @@
-from typing import Tuple
+"""Implementation of Transformer."""
+import torch
 from torch import nn, Tensor
 from torch.utils.checkpoint import checkpoint_sequential
 
+from model.attention import RotaryTransformerLayer
 from model.embedding import Embedding
-from model.pos_encoding import PositionalEncoding
-
-
-class TransformerLayer(nn.Module):
-    def __init__(self, d_model: int, dropout: float, ff: int,
-                 nhead: int) -> None:
-        super().__init__()
-        self.layer = nn.TransformerEncoderLayer(d_model=d_model,
-                                                nhead=nhead,
-                                                dim_feedforward=ff,
-                                                dropout=dropout,
-                                                batch_first=True,
-                                                norm_first=True)
-
-    def forward(self, batch: Tuple[Tensor, Tensor]):
-        data, mask = batch
-        return self.layer(data, src_mask=mask), mask
 
 
 class Transformer(nn.Module):
-    def __init__(self, d_model: int, data_len: int, dropout: float, ff: int,
-                 nhead: int, num_layers: int, num_token: int,
-                 segments: int) -> None:
+    """Implementation of core model.
+
+    Combines Embedding, PositionalEncoding, TransformerLayer into one.
+    All trainable layers are contained here.
+
+    Args:
+        d_model: Transformer hidden dimension size (required).
+        data_len: Input length, not necessarily enforced (required).
+        dropout: Dropout probability (required).
+        ff: Transformer feedforward dimension size (required).
+        nhead: Number of Transformer heads (required).
+        num_layer: Number of Transformer layers (required).
+        num_token: Number of tokens (required).
+        segments: Number of segments for gradient checkpointing (required).
+
+    Examples:
+        >>> transformer = Transformer(d_model, data_len, dropout, ff, nhead,
+                                    num_layer, num_token, segments)"""
+    def __init__(
+        self,
+        d_model: int,
+        data_len: int,
+        dropout: float,
+        ff: int,
+        nhead: int,
+        num_layer: int,
+        num_token: int,
+        segments: int,
+    ) -> None:
         super().__init__()
-        self.embedding = Embedding(d_model=d_model, num_token=num_token)
-        self.pos_encoding = PositionalEncoding(d_model=d_model,
-                                               data_len=data_len,
-                                               dropout=dropout)
+        self.data_len = data_len
+        self.embed = Embedding(d_model=d_model, num_token=num_token)
+        self.bottleneck = nn.Linear(
+            in_features=d_model,
+            out_features=d_model,
+        )
         self.encoder = nn.Sequential(*[
-            TransformerLayer(
-                d_model=d_model, dropout=dropout, ff=ff, nhead=nhead)
-            for _ in range(num_layers)
+            RotaryTransformerLayer(
+                d_model=d_model,
+                dropout=dropout,
+                ff=ff,
+                nhead=nhead,
+            ) for _ in range(num_layer)
         ])
         self.norm = nn.LayerNorm((d_model, ))
         mask = nn.Transformer.generate_square_subsequent_mask(data_len)
         self.register_buffer("mask", mask)
-        self.mask: Tensor
-        self.linear = nn.Linear(in_features=d_model, out_features=num_token)
+        self.linear = nn.Linear(
+            in_features=d_model,
+            out_features=num_token,
+        )
         self.segments = segments
 
     def forward(self, data: Tensor) -> Tensor:
-        embedded = self.embedding(data)
-        encoded = self.pos_encoding(embedded)
-        transformed, _ = checkpoint_sequential(self.encoder, self.segments,
-                                               (encoded, self.mask))
-        normalized = self.norm(transformed)
-        projected = self.linear(normalized)
-        output = projected.permute([0, -1] +
-                                   list(range(1, projected.ndim - 1)))
-        return output
+        """Passes input sequence through Transformer.
+
+        The cached causal mask is used when applicable.
+        Else, a new mask is generated.
+        Gradient checkpointing is used within the Transformer encoder.
+
+        Args:
+            data: Int64 input sequence (required).
+
+        Results:
+            Logits for the prediction of following tokens.
+
+        Shapes:
+            - data: `(batch, seq_len)`
+            - output: `(batch, num_token, data_len)`
+
+        Examples:
+            >>> data = torch.randint(
+                ...     low=0,
+                ...     high=num_token,
+                ...     size=(batch_size, seq_len),
+                ...     dtype=torch.int64,
+                ... )
+            >>> output = transformer(data)"""
+
+        # Embed input
+        embed = self.embed(data)
+        # Pass through bottleneck
+        bottleneck = self.bottleneck(embed)
+        # Generate temporal data
+        temporal = torch.arange(
+            start=0,
+            end=self.data_len,
+            step=1,
+            dtype=torch.float32,
+            device=bottleneck.device,
+        ).unsqueeze(dim=0).repeat((embed.size(0), 1))
+        # Generate mask
+        seq_len = embed.shape[1]
+        if seq_len > self.data_len:
+            mask = nn.Transformer.generate_square_subsequent_mask(seq_len)
+            mask = mask.to(bottleneck.device)
+        else:
+            mask = self.mask[:seq_len, :seq_len]
+        # Pass through encoder
+        # Use gradient checkpointing
+        encode, _, _ = checkpoint_sequential(
+            self.encoder,
+            self.segments,
+            (bottleneck, temporal, mask),
+        )
+        # Normalize
+        normalize = self.norm(encode)
+        # Pass through linear layer
+        linear = self.linear(normalize)
+        # Permute dimensions for compatibility with nn.CrossEntropyLoss
+        return linear.permute(0, 2, 1)

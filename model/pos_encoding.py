@@ -1,3 +1,8 @@
+"""Positional Encoding implementation.
+
+Original implementation link:
+https://github.com/pytorch/examples/blob/master/word_language_model/model.py
+Modified significantly by me."""
 import math
 
 import torch
@@ -5,45 +10,76 @@ from torch import nn, Tensor
 
 
 class PositionalEncoding(nn.Module):
-    r"""Inject some information about the relative or absolute position of the tokens
+    """Inject some information about the relative or absolute position of the tokens
         in the sequence. The positional encodings have the same dimension as
         the embeddings, so that the two can be summed. Here, we use sine and cosine
         functions of different frequencies.
-    .. math::
-        \text{PosEncoder}(pos, 2i) = sin(pos/10000^(2i/d_model))
-        \text{PosEncoder}(pos, 2i+1) = cos(pos/10000^(2i/d_model))
-        \text{where pos is the word position and i is the embed idx)
+
     Args:
-        d_model: the embed dim (required).
-        dropout: the dropout value (default=0.1).
-        max_len: the max. length of the incoming sequence (default=5000).
+        d_model: The embed dim (required).
+        dropout: The dropout value (required).
+        max_len: The maximum length of the incoming sequence (required).
+
     Examples:
-        >>> pos_encoder = PositionalEncoding(d_model)
+        >>> pos_encoding = PositionalEncoding(d_model, data_len, dropout)
     """
     def __init__(self, d_model: int, data_len: int, dropout: float):
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
-        position = torch.arange(0, data_len,
-                                dtype=torch.float).reshape(1, -1, 1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2, dtype=torch.float32) *
-            (-math.log(10000.0) / d_model))
-        term = position * div_term
-        positional_encoding = torch.flatten(torch.stack(
-            [torch.sin(term), torch.cos(term)], dim=-1),
-                                            start_dim=-2)
+        self.d_model = d_model
+        self.data_len = data_len
+        positional_encoding = self.get_encoding(data_len)
         self.register_buffer("positional_encoding", positional_encoding)
         self.positional_encoding: Tensor
 
-    def forward(self, embedding: Tensor):
-        r"""Inputs of forward function
+    def get_encoding(self, length: int) -> Tensor:
+        """Calculates sinusoidal positional encoding.
+
         Args:
-            embedding: the sequence fed to the positional encoder model (required).
-        Shape:
-            embedding: [batch size, sequence length, model dim]
-            output: [batch size, sequence length, model dim]
+            length: Length of input sequence (required)
+
+        Returns:
+            The calculated positional encoding. The results are as follows:
+
+            >>> pos_enc[pos, 2 * i] = sin(pos / pow(10000, 2 * i / d_model))
+            >>> pos_enc[pos, 2 * i + 1] = cos(pos / pow(10000, 2 * i / d_model))
+
+        Shapes:
+            pos_enc: [data_len, d_model]
+
         Examples:
-            >>> output = pos_encoder(embedding)
+            >>> pos_enc = calculate_encoding(length)"""
+        position = torch.arange(0, length, dtype=torch.float32)
+        div_term = torch.exp(
+            torch.arange(0, self.d_model, 2, dtype=torch.float32) *
+            (-math.log(10000.0) / self.d_model))
+        term = torch.einsum("i,j->ij", position, div_term).unsqueeze(dim=-1)
+        positional_encoding = torch.stack(
+            [torch.sin(term), torch.cos(term)],
+            dim=-1,
+        ).flatten(start_dim=1)
+        return positional_encoding
+
+    def forward(self, sequence: Tensor) -> Tensor:
+        """Performs encoding & dropout on input.
+
+        Args:
+            sequence: The sequence fed to the positional encoder (required).
+
+        Returns:
+            The sequence, with positional encoding added and dropout performed.
+
+        Shapes:
+            sequence: [batch_size, data_len, d_model]
+            output: [batch_size, data_len, d_model]
+
+        Examples:
+            >>> output = pos_encoding(sequence)
         """
 
-        return self.dropout(embedding + self.positional_encoding)
+        if sequence.shape[1] != self.data_len:
+            pos_encoding = self.get_encoding(sequence.shape[1]).to(sequence)
+        else:
+            pos_encoding = self.positional_encoding
+
+        return self.dropout(sequence + pos_encoding)

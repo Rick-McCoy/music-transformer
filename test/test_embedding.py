@@ -1,3 +1,4 @@
+"""Unit test for `model/embedding.py`"""
 import unittest
 
 from hydra import initialize, compose
@@ -7,15 +8,17 @@ from model.embedding import Embedding
 
 
 class TestEmbedding(unittest.TestCase):
+    """Tester for `model/embedding.py`."""
     def setUp(self) -> None:
         with initialize(config_path="../config"):
-            cfg = compose(config_name="config")
+            cfg = compose(config_name="main")
             self.cfg = cfg
             self.embedding = Embedding(d_model=cfg.model.d_model,
-                                       num_token=cfg.model.num_token)
+                                       num_token=cfg.data.num_program)
 
     def test_embedding(self):
-        data = torch.zeros(8, self.cfg.model.data_len, dtype=torch.int64)
-        output = self.embedding(data)
-        self.assertEqual(output.size(),
-                         (8, self.cfg.model.data_len, self.cfg.model.d_model))
+        """Tester for Embedding.
+
+        Tests if embedding returns correct shape."""
+        embedding = self.embedding(torch.tensor([0, 1, 2, 3]))
+        self.assertEqual(embedding.size(), (4, self.cfg.model.d_model))
