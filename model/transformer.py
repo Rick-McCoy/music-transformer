@@ -20,12 +20,22 @@ class Transformer(nn.Module):
         ff: Transformer feedforward dimension size (required).
         nhead: Number of Transformer heads (required).
         num_layer: Number of Transformer layers (required).
+        num_temp: Number of temporal columns (required).
         num_token: Number of tokens (required).
         segments: Number of segments for gradient checkpointing (required).
 
     Examples:
-        >>> transformer = Transformer(d_model, data_len, dropout, ff, nhead,
-                                    num_layer, num_token, segments)"""
+        >>> transformer = Transformer(
+            ...     d_model=128,
+            ...     data_len=1024,
+            ...     dropout=0.1,
+            ...     ff=2048,
+            ...     nhead=8,
+            ...     num_layer=16,
+            ...     num_temp=4,
+            ...     num_token=1024,
+            ...     segments=4,
+            ... )"""
     def __init__(
         self,
         d_model: int,
@@ -34,6 +44,7 @@ class Transformer(nn.Module):
         ff: int,
         nhead: int,
         num_layer: int,
+        num_temp: int,
         num_token: int,
         segments: int,
     ) -> None:
@@ -45,12 +56,11 @@ class Transformer(nn.Module):
             out_features=d_model,
         )
         self.encoder = nn.Sequential(*[
-            RotaryTransformerLayer(
-                d_model=d_model,
-                dropout=dropout,
-                ff=ff,
-                nhead=nhead,
-            ) for _ in range(num_layer)
+            RotaryTransformerLayer(d_model=d_model,
+                                   dropout=dropout,
+                                   ff=ff,
+                                   nhead=nhead,
+                                   num_temp=num_temp) for _ in range(num_layer)
         ])
         self.norm = nn.LayerNorm((d_model, ))
         mask = nn.Transformer.generate_square_subsequent_mask(data_len)
@@ -61,7 +71,7 @@ class Transformer(nn.Module):
         )
         self.segments = segments
 
-    def forward(self, data: Tensor) -> Tensor:
+    def forward(self, data: Tensor, position: Tensor) -> Tensor:
         """Passes input sequence through Transformer.
 
         The cached causal mask is used when applicable.
@@ -93,7 +103,7 @@ class Transformer(nn.Module):
         embed = self.embed(data)
         # Pass through bottleneck
         bottleneck = self.bottleneck(embed)
-        # Generate temporal data
+        # Generate integer positions
         temporal = torch.arange(
             start=0,
             end=seq_len,
@@ -101,6 +111,8 @@ class Transformer(nn.Module):
             dtype=torch.float32,
             device=bottleneck.device,
         ).unsqueeze(dim=0).repeat((embed.size(0), 1))
+        # Stack position and temporal
+        position = torch.stack((temporal, position), dim=-1)
         # Get mask
         if seq_len > self.data_len:
             mask = nn.Transformer.generate_square_subsequent_mask(seq_len)
@@ -112,7 +124,7 @@ class Transformer(nn.Module):
         encode, _, _ = checkpoint_sequential(
             self.encoder,
             self.segments,
-            (bottleneck, temporal, mask),
+            (bottleneck, position, mask),
         )
         # Normalize
         normalize = self.norm(encode)

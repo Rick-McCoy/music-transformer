@@ -21,15 +21,14 @@ class TestDataModule(unittest.TestCase):
                           ])
             self.cfg = cfg
             # Initialize Modifier
-            modifier = Modifier(
-                num_special=cfg.data.num_special,
-                num_program=cfg.data.num_program,
-                num_note=cfg.data.num_note,
-                num_velocity=cfg.data.num_velocity,
-                num_time_num=cfg.data.num_time_num,
-                note_shift=cfg.data.note_shift,
-                velocity_scale=cfg.data.velocity_scale,
-            )
+            modifier = Modifier(num_special=cfg.data.num_special,
+                                num_program=cfg.data.num_program,
+                                num_note=cfg.data.num_note,
+                                num_velocity=cfg.data.num_velocity,
+                                num_time_num=cfg.data.num_time_num,
+                                note_shift=cfg.data.note_shift,
+                                velocity_scale=cfg.data.velocity_scale,
+                                time_scale=cfg.data.time_scale)
             # Initialize DataModule
             self.module = MusicDataModule(
                 batch_size=cfg.train.batch_size,
@@ -39,8 +38,7 @@ class TestDataModule(unittest.TestCase):
                 num_workers=cfg.train.num_workers,
                 data_len=cfg.model.data_len,
                 augment=False,
-                modifier=modifier,
-            )
+                modifier=modifier)
         self.module.prepare_data()
         self.module.setup()
 
@@ -53,10 +51,16 @@ class TestDataModule(unittest.TestCase):
                 self.module.val_dataloader(),
                 self.module.test_dataloader()
         ]:
-            data = next(iter(dataloader))
+            data, position = next(iter(dataloader))
             self.assertIsInstance(data, Tensor)
             self.assertEqual(data.dtype, torch.int64)
             self.assertEqual(data.size(), (
+                self.cfg.train.batch_size,
+                self.cfg.model.data_len + 1,
+            ))
+            self.assertIsInstance(position, Tensor)
+            self.assertEqual(position.dtype, torch.float32)
+            self.assertEqual(position.size(), (
                 self.cfg.train.batch_size,
                 self.cfg.model.data_len + 1,
             ))

@@ -19,11 +19,9 @@ class Embedding(nn.Module):
         >>> embedding = Embedding(d_model=512, num_token=128)"""
     def __init__(self, d_model: int, num_token: int) -> None:
         super().__init__()
-        self.embed = nn.Embedding(
-            num_embeddings=num_token,
-            embedding_dim=d_model,
-            padding_idx=0,
-        )
+        self.embed = nn.Embedding(num_embeddings=num_token,
+                                  embedding_dim=d_model,
+                                  padding_idx=0)
 
     def forward(self, data: Tensor):
         """Calculates embedding from indices.
@@ -40,12 +38,12 @@ class Embedding(nn.Module):
 
         Examples:
             >>> data = torch.randint(
-                low=0,
-                high=num_token,
-                size=(batch, seq_len),
-                dtype=torch.int64,
-            )
-            >>> embedding = embedding(data)"""
+                ...     low=0,
+                ...     high=128,
+                ...     size=(2, 10),
+                ...     dtype=torch.int64)
+            >>> embedding = Embedding(d_model=512, num_token=128)
+            >>> embed = embedding(data)"""
         return self.embed(data)
 
 
@@ -63,33 +61,18 @@ class MultiResolutionTimeEmbedding(nn.Module):
 
     Example:
         >>> embedding = MultiResolutionTimeEmbedding(
-            ...     d_model=512,
-            ...     level=1024,
-            ...     res_max=1024,
-            ...     res_min=16,
-            ...     max_time=4,
-            ... )"""
-    def __init__(
-        self,
-        d_model: int,
-        level: int,
-        res_max: int,
-        res_min: int,
-        max_time: int,
-    ) -> None:
+            ...     d_model=512, level=16, res_max=128, res_min=8, max_time=4)"""
+    def __init__(self, d_model: int, level: int, res_max: int, res_min: int,
+                 max_time: int) -> None:
         super().__init__()
         resolutions = np.round(
-            np.exp(np.linspace(
-                np.log(res_min),
-                np.log(res_max),
-                level,
-            ))).astype(np.int64)
+            np.exp(np.linspace(np.log(res_min), np.log(res_max),
+                               level))).astype(np.int64)
         self.register_buffer("resolutions", torch.LongTensor(resolutions))
         self.embeddings = nn.ModuleList([
-            nn.Embedding(
-                num_embeddings=resolution,
-                embedding_dim=d_model // level,
-            ) for resolution in resolutions
+            nn.Embedding(num_embeddings=resolution,
+                         embedding_dim=d_model // level)
+            for resolution in resolutions
         ])
         denominators = torch.LongTensor([
             (resolution + max_time - 1) // max_time
@@ -118,33 +101,21 @@ class MultiResolutionTimeEmbedding(nn.Module):
 
         Examples:
             >>> embedding = embed(fraction)"""
-        scale = torch.einsum(
-            "ij,k->ijk",
-            fraction,
-            self.denominators,
-        )
+        scale = torch.einsum("ij,k->ijk", fraction, self.denominators)
         lower = torch.floor(scale).long()
         upper = torch.ceil(scale).long()
         lower = torch.minimum(lower, self.resolutions - 1)
         upper = torch.minimum(upper, self.resolutions - 1)
         lower_embed = torch.stack(
             [embed(lower[..., i]) for i, embed in enumerate(self.embeddings)],
-            dim=-1,
-        )
+            dim=-1)
         upper_embed = torch.stack(
             [embed(upper[..., i]) for i, embed in enumerate(self.embeddings)],
-            dim=-1,
-        )
-        lower_weight = torch.where(
-            lower == upper,
-            torch.ones_like(scale),
-            upper - scale,
-        ).unsqueeze(dim=-2)
-        upper_weight = torch.where(
-            lower == upper,
-            torch.zeros_like(scale),
-            scale - lower,
-        ).unsqueeze(dim=-2)
+            dim=-1)
+        lower_weight = torch.where(lower == upper, torch.ones_like(scale),
+                                   upper - scale).unsqueeze(dim=-2)
+        upper_weight = torch.where(lower == upper, torch.zeros_like(scale),
+                                   scale - lower).unsqueeze(dim=-2)
         embedding = lower_embed * lower_weight + upper_embed * upper_weight
         return embedding.flatten(start_dim=-2)
 
@@ -190,49 +161,32 @@ class MusicEmbedding(nn.Module):
             ...     num_velocity=128,
             ...     num_special=3,
             ... )"""
-    def __init__(
-        self,
-        d_model: int,
-        duration_level: int,
-        duration_resolution_max: int,
-        duration_resolution_min: int,
-        duration_max: int,
-        delta_level: int,
-        delta_resolution_max: int,
-        delta_resolution_min: int,
-        delta_max: int,
-        num_program: int,
-        num_note: int,
-        num_velocity: int,
-        num_special: int,
-    ) -> None:
+    def __init__(self, d_model: int, duration_level: int,
+                 duration_resolution_max: int, duration_resolution_min: int,
+                 duration_max: int, delta_level: int,
+                 delta_resolution_max: int, delta_resolution_min: int,
+                 delta_max: int, num_program: int, num_note: int,
+                 num_velocity: int, num_special: int) -> None:
         super().__init__()
-        self.program_embedding = Embedding(
-            d_model=d_model,
-            num_token=num_program + num_special,
-        )
-        self.note_embedding = Embedding(
-            d_model=d_model,
-            num_token=num_note + num_special,
-        )
-        self.velocity_embedding = Embedding(
-            d_model=d_model,
-            num_token=num_velocity + num_special,
-        )
+        self.program_embedding = Embedding(d_model=d_model,
+                                           num_token=num_program + num_special)
+        self.note_embedding = Embedding(d_model=d_model,
+                                        num_token=num_note + num_special)
+        self.velocity_embedding = Embedding(d_model=d_model,
+                                            num_token=num_velocity +
+                                            num_special)
         self.duration_embedding = MultiResolutionTimeEmbedding(
             d_model=d_model,
             level=duration_level,
             res_max=duration_resolution_max,
             res_min=duration_resolution_min,
-            max_time=duration_max,
-        )
+            max_time=duration_max)
         self.delta_embedding = MultiResolutionTimeEmbedding(
             d_model=d_model,
             level=delta_level,
             res_max=delta_resolution_max,
             res_min=delta_resolution_min,
-            max_time=delta_max,
-        )
+            max_time=delta_max)
 
     def forward(self, data: Tensor) -> Tensor:
         """Calculates embedding from data.
@@ -263,14 +217,9 @@ class MusicEmbedding(nn.Module):
         velocity_embed = self.velocity_embedding(velocity)
         duration_embed = self.duration_embedding(duration)
         delta_embed = self.delta_embedding(delta)
-        embed = torch.cat(
-            [
-                program_embed,
-                note_embed,
-                velocity_embed,
-                duration_embed,
-                delta_embed,
-            ],
-            dim=-1,
-        )
+        embed = torch.cat([
+            program_embed, note_embed, velocity_embed, duration_embed,
+            delta_embed
+        ],
+                          dim=-1)
         return embed

@@ -65,20 +65,12 @@ class MultiResolutionTimeLoss(nn.Module):
             ...     res_min=16,
             ...     max_time=8,
             ...     )"""
-    def __init__(
-        self,
-        level: int,
-        res_max: int,
-        res_min: int,
-        max_time: int,
-    ) -> None:
+    def __init__(self, level: int, res_max: int, res_min: int,
+                 max_time: int) -> None:
         super().__init__()
         resolutions = np.round(
-            np.exp(np.linspace(
-                np.log(res_min),
-                np.log(res_max),
-                level,
-            ))).astype(np.int64)
+            np.exp(np.linspace(np.log(res_min), np.log(res_max),
+                               level))).astype(np.int64)
         self.res_list = resolutions.tolist()
         self.register_buffer("resolutions", torch.LongTensor(self.res_list))
         self.loss = nn.CrossEntropyLoss(reduction="none")
@@ -106,40 +98,26 @@ class MultiResolutionTimeLoss(nn.Module):
 
         Examples:
             >>> loss = loss(logit, fraction)"""
-        scale = torch.einsum(
-            "ij,k->ijk",
-            fraction,
-            self.denominators,
-        )
+        scale = torch.einsum("ij,k->ijk", fraction, self.denominators)
         lower = torch.floor(scale).long()
         upper = torch.ceil(scale).long()
         lower = torch.minimum(lower, self.resolutions - 1)
         upper = torch.minimum(upper, self.resolutions - 1)
         logits = logit.split(self.res_list, dim=1)
-        lower_loss = torch.stack(
-            [
-                self.loss(lower_logit, lower[..., i])
-                for i, lower_logit in enumerate(logits)
-            ],
-            dim=-1,
-        )
-        upper_loss = torch.stack(
-            [
-                self.loss(upper_logit, upper[..., i])
-                for i, upper_logit in enumerate(logits)
-            ],
-            dim=-1,
-        )
-        lower_weight = torch.where(
-            lower == upper,
-            torch.ones_like(scale),
-            upper - scale,
-        )
-        upper_weight = torch.where(
-            lower == upper,
-            torch.zeros_like(scale),
-            scale - lower,
-        )
+        lower_loss = torch.stack([
+            self.loss(lower_logit, lower[..., i])
+            for i, lower_logit in enumerate(logits)
+        ],
+                                 dim=-1)
+        upper_loss = torch.stack([
+            self.loss(upper_logit, upper[..., i])
+            for i, upper_logit in enumerate(logits)
+        ],
+                                 dim=-1)
+        lower_weight = torch.where(lower == upper, torch.ones_like(scale),
+                                   upper - scale)
+        upper_weight = torch.where(lower == upper, torch.zeros_like(scale),
+                                   scale - lower)
         loss = lower_loss * lower_weight + upper_loss * upper_weight
         return loss.mean()
 
@@ -170,17 +148,10 @@ class MusicLoss(nn.Module):
             ...     delta_resolution_min=16,
             ...     delta_max=2,
             ...     )"""
-    def __init__(
-        self,
-        duration_level: int,
-        duration_resolution_max: int,
-        duration_resolution_min: int,
-        duration_max: int,
-        delta_level: int,
-        delta_resolution_max: int,
-        delta_resolution_min: int,
-        delta_max: int,
-    ) -> None:
+    def __init__(self, duration_level: int, duration_resolution_max: int,
+                 duration_resolution_min: int, duration_max: int,
+                 delta_level: int, delta_resolution_max: int,
+                 delta_resolution_min: int, delta_max: int) -> None:
         super().__init__()
         self.program_loss = SimpleLoss()
         self.note_loss = SimpleLoss()
@@ -189,24 +160,15 @@ class MusicLoss(nn.Module):
             level=duration_level,
             res_max=duration_resolution_max,
             res_min=duration_resolution_min,
-            max_time=duration_max,
-        )
-        self.delta_loss = MultiResolutionTimeLoss(
-            level=delta_level,
-            res_max=delta_resolution_max,
-            res_min=delta_resolution_min,
-            max_time=delta_max,
-        )
+            max_time=duration_max)
+        self.delta_loss = MultiResolutionTimeLoss(level=delta_level,
+                                                  res_max=delta_resolution_max,
+                                                  res_min=delta_resolution_min,
+                                                  max_time=delta_max)
 
-    def forward(
-        self,
-        program_logit: Tensor,
-        note_logit: Tensor,
-        velocity_logit: Tensor,
-        duration_logit: Tensor,
-        delta_logit: Tensor,
-        target: Tensor,
-    ) -> Tensor:
+    def forward(self, program_logit: Tensor, note_logit: Tensor,
+                velocity_logit: Tensor, duration_logit: Tensor,
+                delta_logit: Tensor, target: Tensor) -> Tensor:
         """Calculates loss from logits and targets.
 
         Args:

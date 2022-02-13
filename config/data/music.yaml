@@ -10,3 +10,4 @@ process_dir: ["data", "process"]
 augment: False
 note_shift: 3
 velocity_scale: 2
+time_scale: 25

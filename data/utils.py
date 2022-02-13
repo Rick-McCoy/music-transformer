@@ -2,7 +2,7 @@
 from fractions import Fraction
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 from mido import MidiFile, MidiTrack
 from mido.messages.messages import Message
@@ -152,8 +152,6 @@ class Converter:
             # Update current time
             current_time = event.time
 
-        assert np.array(tokens).max(
-        ) <= simple_limit, f"{np.array(tokens).max()} > {simple_limit}"
         # Convert list of tokens to numpy array
         return np.array(tokens, dtype=self.type)
 
@@ -187,7 +185,7 @@ class Modifier:
     """Flattens, unflattens, and augments tokens."""
     def __init__(self, num_special: int, num_program: int, num_note: int,
                  num_velocity: int, num_time_num: int, note_shift: int,
-                 velocity_scale: float):
+                 velocity_scale: float, time_scale: int):
         self.program_offset = num_special
         self.note_offset = self.program_offset + num_program
         self.velocity_offset = self.note_offset + num_note
@@ -197,6 +195,7 @@ class Modifier:
         self.velocity_max = num_velocity - 1
         self.note_shift = note_shift
         self.velocity_scale = velocity_scale
+        self.time_scale = time_scale
         self.rng = np.random.default_rng()
         self.pad = 0
         self.begin = 1
@@ -229,11 +228,9 @@ class Modifier:
         # [1/velocity_scale, velocity_scale].
         log_velocity_scale = np.log(self.velocity_scale)
         velocity_scale = np.exp(
-            self.rng.uniform(
-                low=-log_velocity_scale,
-                high=log_velocity_scale,
-                size=1,
-            ))
+            self.rng.uniform(low=-log_velocity_scale,
+                             high=log_velocity_scale,
+                             size=1))
         # Shift notes and clip to [0, note_max].
         tokens[:, 1] = np.clip(tokens[:, 1] + note_shift, 0, self.note_max)
         # Scale velocities, round to nearest integer, and clip to [0, velocity_max].
@@ -241,7 +238,7 @@ class Modifier:
                                self.velocity_max)
         return tokens
 
-    def flatten(self, tokens: ndarray) -> ndarray:
+    def flatten(self, tokens: ndarray) -> Tuple[ndarray, ndarray]:
         """Flattens a 2d numpy array of tokens.
 
         See augment() for 2d token format.
@@ -249,35 +246,47 @@ class Modifier:
         Zero velocity tokens are removed.
         Zero time tokens are removed.
 
+        Also returns cumulative sum of time tokens.
+
         Args:
             tokens: 2d numpy array of tokens (required).
 
         Returns:
-            A flattened numpy array of tokens."""
+            Flattened tokens and cumulative sum of time tokens."""
 
         # Initialize flattened tokens
         flattened_tokens = []
-        # Add offsets to tokens
-        tokens[:, 0] += self.program_offset
-        tokens[:, 1] += self.note_offset
-        tokens[:, 2] += self.velocity_offset
-        tokens[:, 3] += self.time_num_offset
-        tokens[:, 4] += self.time_denum_offset
+        # Initialize cumulative sum of time tokens
+        time_sum = 0
+        # Initialize temporal positions
+        temporal_positions = []
         # Iterate through tokens
         for token in tokens:
             program, note, velocity, time_num, time_denum = token
-            # Append program, note
-            flattened_tokens.append(program)
-            flattened_tokens.append(note)
-            # If velocity is not zero, append velocity
-            if velocity > self.velocity_offset:
-                flattened_tokens.append(velocity)
             # If time is not zero, append time numerator and denominator
-            if time_num > self.time_num_offset:
-                flattened_tokens.append(time_num)
-                flattened_tokens.append(time_denum)
+            if time_num > 0:
+                flattened_tokens.append(time_num + self.time_num_offset)
+                flattened_tokens.append(time_denum + self.time_denum_offset)
+                # Append time_sum to temporal positions
+                temporal_positions.append(time_sum * self.time_scale)
+                temporal_positions.append(time_sum * self.time_scale)
+            # Add time numerator and denominator to time_sum
+            time_sum += time_num / time_denum
+            # Append program, note
+            flattened_tokens.append(program + self.program_offset)
+            flattened_tokens.append(note + self.note_offset)
+            # Append time_sum to temporal positions
+            temporal_positions.append(time_sum * self.time_scale)
+            temporal_positions.append(time_sum * self.time_scale)
+            # If velocity is not zero, append velocity
+            if velocity > 0:
+                flattened_tokens.append(velocity + self.velocity_offset)
+                # Append time_sum to temporal positions
+                temporal_positions.append(time_sum * self.time_scale)
         # Convert flattened tokens to numpy array
-        return np.array(flattened_tokens, dtype=np.int64)
+        return np.array(flattened_tokens,
+                        dtype=np.int64), np.array(temporal_positions,
+                                                  dtype=np.float32)
 
     def unflatten(self, tokens: ndarray) -> ndarray:
         """Unflattens a 1d numpy array of tokens.
@@ -318,7 +327,8 @@ class Modifier:
         # Convert unflattened tokens to numpy array
         return np.array(unflattened_tokens, dtype=np.uint8)
 
-    def pad_or_slice(self, tokens: ndarray, length: int) -> ndarray:
+    def pad_or_slice(self, tokens: ndarray, positions: ndarray,
+                     length: int) -> Tuple[ndarray, ndarray]:
         """Pads a 1d numpy array of tokens.
 
         If the length of the tokens is less than the given length,
@@ -335,18 +345,24 @@ class Modifier:
 
         # Pad begin & end tokens
         tokens = np.concatenate([[self.begin], tokens, [self.end]])
+        # Pad positions
+        positions = np.concatenate([[positions[0]], positions,
+                                    [positions[-1]]])
         # If length is greater than tokens length, pad tokens
         if length > len(tokens):
             tokens = np.concatenate(
                 [tokens, [self.pad] * (length - len(tokens))])
+            positions = np.concatenate(
+                [positions, [positions[-1]] * (length - len(positions))])
         # If length is less than tokens length, randomly slice tokens
         elif length < len(tokens):
             start_index = self.rng.integers(0,
                                             len(tokens) - length,
                                             endpoint=True)
             tokens = tokens[start_index:start_index + length]
-        # Return padded tokens
-        return tokens
+            positions = positions[start_index:start_index + length]
+        # Return padded tokens and positions
+        return tokens, positions
 
 
 def process_tokens(data_dir: Path, text_dir: Path, process_dir: Path) -> None:

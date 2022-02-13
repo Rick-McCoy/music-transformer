@@ -31,108 +31,130 @@ class RotaryAttention(nn.Module):
     This can be computed by the following equation:
     ```
     rot(q) = [-q2, q1, -q4, q3, ...]
-    f(q, m) = q * repeat(cos(m * freq), 2) + repeat(rot(q) * sin(m * freq), 2)
+    f(q, m) = q * cos(repeat(m * freq, 2)) + rot(q) * sin(repeat(m * freq, 2))
     ```
 
-    Frequency is calculated from the provided temporal position `m`.
-    Similar to the original positional encoding, the frequency is
-    calculated from the position `m` by:
+    Similar to the original positional encoding, we use an
+    exponential-sinusoidal function for frequency:
     ```
-    freq = 10000^(-m * range(0, 1, 2 / d_model))
+    freq = 10000^(range(0, dim, 2) / dim)
     ```
+    Where `dim` is `d_model // 2`.
 
     Args:
         d_model: Dimension of the model (required).
         nhead: Number of heads (required).
+        num_temp: Number of temporal columns (required).
         dropout: Dropout probability (required).
 
     Examples:
         >>> from model.attention import RotaryAttention
-        >>> rotary_attention = RotaryAttention(d_model=512, nhead=8, dropout=0.1)"""
-    def __init__(self, d_model: int, nhead: int, dropout: float) -> None:
+        >>> rotary_attention = RotaryAttention(d_model=512, nhead=8, num_temp=4, dropout=0.1)"""
+    def __init__(self, d_model: int, nhead: int, num_temp: int,
+                 dropout: float) -> None:
         super().__init__()
-        self.query_linear = nn.Linear(
-            in_features=d_model,
-            out_features=d_model,
-        )
-        self.key_linear = nn.Linear(
-            in_features=d_model,
-            out_features=d_model,
-        )
-        self.value_linear = nn.Linear(
-            in_features=d_model,
-            out_features=d_model,
-        )
+        self.query_linear = nn.Linear(in_features=d_model,
+                                      out_features=d_model)
+        self.key_linear = nn.Linear(in_features=d_model, out_features=d_model)
+        self.value_linear = nn.Linear(in_features=d_model,
+                                      out_features=d_model)
         self.dropout = nn.Dropout(p=dropout)
-        dim = d_model // nhead
+        dim = d_model // nhead // num_temp
         freq = torch.pow(10000, -torch.arange(0, dim, 2) / dim)
         freq = torch.repeat_interleave(freq, repeats=2, dim=0)
         self.register_buffer("freq", freq)
         self.nhead = nhead
         self.scale = math.sqrt(d_model // nhead)
 
+    def apply_rotary(self, data: Tensor, sine: Tensor,
+                     cosine: Tensor) -> Tensor:
+        """Applies rotary embedding to data.
+
+        Args:
+            data: Input data (required).
+            temporal: Tenmporal data (required).
+
+        Returns:
+            Rotary embeddings.
+
+        Shapes:
+            - data: `(batch_size, seq_len, nhead, d_model // nhead)`
+            - sine: `(batch_size, seq_len, d_model // nhead)`
+            - cosine: `(batch_size, seq_len, d_model // nhead)`
+            - output: `(batch_size, seq_len, nhead, d_model // nhead)`
+
+        Examples:
+            >>> data = torch.randn(batch_size, seq_len, nhead, d_model // nhead)
+            >>> sine = torch.randn(batch_size, seq_len, d_model // nhead)
+            >>> cosine = torch.randn(batch_size, seq_len, d_model // nhead)
+            >>> output = rotary_attention.apply_rotary(data, sine, cosine)"""
+
+        # Rotate query
+        # Shape: `(batch_size, seq_len, nhead, d_model // nhead)`
+        stack_data = torch.stack([-data[..., 1::2], data[..., 0::2]], dim=-1)
+        rotate_data = torch.flatten(stack_data, start_dim=-2)
+
+        # Calculate rotary embedding
+        # Shape: `(batch_size, seq_len, nhead, d_model // nhead)`
+        rotary_data = torch.einsum("blhs,bls->blhs", data, cosine) + \
+            torch.einsum("blhs,bls->blhs", rotate_data, sine)
+
+        return rotary_data
+
     def forward(self, data: Tensor, temporal: Tensor, mask: Tensor) -> Tensor:
         """Forward pass.
 
         Args:
             data: Input data (required).
-            temporal: Temporal input (required).
+            temporal: Temporal data (required).
             mask: Mask for the input (required).
 
         Returns:
-            Tensor of shape (batch_size, seq_len, d_model).
+            Attention output.
 
         Shapes:
-            - data: `(batch, seq_len, d_model)`
-            - temporal: `(batch, seq_len)`
+            - data: `(batch_size, seq_len, d_model)`
+            - temporal: `(batch_size, seq_len, num_temp)`
             - mask: `(seq_len, seq_len)`
+            - output: `(batch_size, seq_len, d_model)`
 
         Examples:
             >>> data = torch.randn(batch_size, seq_len, d_model)
-            >>> temporal = torch.randn(batch_size, seq_len)
+            >>> temporal = torch.randn(batch_size, seq_len, num_temp)
             >>> mask = torch.zeros(seq_len, seq_len)
-            >>> output, *_ = rotary_attention(data, temporal, mask)"""
+            >>> output, _, _ = rotary_attention(data, temporal, mask)"""
 
         # Calculate query, key, value
-        # Shape: `(batch, seq_len, d_model)`
+        # Shape: `(batch_size, seq_len, d_model)`
         query = self.query_linear(data)
         key = self.key_linear(data)
         value = self.value_linear(data)
 
         # Unflatten heads
-        # Shape: `(batch, seq_len, nhead, d_model // nhead)`
+        # Shape: `(batch_size, seq_len, nhead, d_model // nhead)`
         query = query.unflatten(-1, (self.nhead, -1))
         key = key.unflatten(-1, (self.nhead, -1))
         value = value.unflatten(-1, (self.nhead, -1))
 
         # Calculate frequency
-        # Shape: `(batch, seq_len, d_model // nhead)`
-        freqs = torch.einsum("bl,d->bld", temporal, self.freq)
+        # Shape: `(batch_size, seq_len, num_temp, d_model // nhead // num_temp)`
+        freqs = torch.einsum("blt,d->bltd", temporal, self.freq)
+
+        # Flatten frequency
+        # Shape: `(batch_size, seq_len, d_model // nhead)`
+        freqs = torch.flatten(freqs, start_dim=-2)
 
         # Calculate cosine and sine
-        # Shape: `(batch, seq_len, d_model // nhead)`
+        # Shape: `(batch_size, seq_len, d_model // nhead)`
         cosine = torch.cos(freqs)
         sine = torch.sin(freqs)
 
-        # Rotate query
-        # Shape: `(batch, seq_len, nhead, d_model // nhead)`
-        stack_query = torch.stack([-query[..., 1::2], query[..., 0::2]],
-                                  dim=-1)
-        rotate_query = torch.flatten(stack_query, start_dim=-2)
-        # Rotate key
-        # Shape: `(batch, seq_len, nhead, d_model // nhead)`
-        stack_key = torch.stack([-key[..., 1::2], key[..., 0::2]], dim=-1)
-        rotate_key = torch.flatten(stack_key, start_dim=-2)
-
-        # Calculate rotary embedding
-        # Shape: `(batch, seq_len, nhead, d_model // nhead)`
-        rotary_query = torch.einsum("blhs,bls->blhs", query, cosine) + \
-            torch.einsum("blhs,bls->blhs", rotate_query, sine)
-        rotary_key = torch.einsum("blhs,bls->blhs", key, cosine) + \
-            torch.einsum("blhs,bls->blhs", rotate_key, sine)
+        # Rotate query and key
+        rotary_query = self.apply_rotary(query, sine, cosine)
+        rotary_key = self.apply_rotary(key, sine, cosine)
 
         # Calculate attention
-        # Shape: `(batch, nhead, seq_len, seq_len)`
+        # Shape: `(batch_size, nhead, seq_len, seq_len)`
         logits = torch.einsum("bqhs,bkhs->bhqk", rotary_query, rotary_key)
         # Scale logits
         logits = logits / self.scale
@@ -141,16 +163,16 @@ class RotaryAttention(nn.Module):
         logits += mask
 
         # Calculate attention weights
-        # Shape: `(batch, nhead, seq_len, seq_len)`
+        # Shape: `(batch_size, nhead, seq_len, seq_len)`
         weights = torch.softmax(logits, dim=-1)
         # Dropout
         weights = self.dropout(weights)
 
         # Calculate context
-        # Shape: `(batch, seq_len, nhead, d_model // nhead)`
+        # Shape: `(batch_size, seq_len, nhead, d_model // nhead)`
         context = torch.einsum("bhqk,bkhs->bqhs", weights, value)
         # Flatten heads
-        # Shape: `(batch, seq_len, d_model)`
+        # Shape: `(batch_size, seq_len, d_model)`
         context = context.flatten(start_dim=-2)
 
         return context
@@ -171,28 +193,20 @@ class RotaryTransformerLayer(nn.Module):
         dropout: Dropout probability (required).
         ff: Feed-forward dimension size (required).
         nhead: Number of heads (required).
+        num_temp: Number of temporal columns (required).
 
     Examples:
         >>> from model.attention import RotaryTransformerLayer
         >>> rotary_transformer_layer = RotaryTransformerLayer(
-            ...     d_model=512,
-            ...     dropout=0.1,
-            ...     ff=2048,
-            ...     nhead=8,
-            ... )"""
-    def __init__(
-        self,
-        d_model: int,
-        dropout: float,
-        ff: int,
-        nhead: int,
-    ) -> None:
+            ...     d_model=512, dropout=0.1, ff=2048,
+            ...     nhead=8, num_temp=4)"""
+    def __init__(self, d_model: int, dropout: float, ff: int, nhead: int,
+                 num_temp: int) -> None:
         super().__init__()
-        self.attention = RotaryAttention(
-            d_model=d_model,
-            nhead=nhead,
-            dropout=dropout,
-        )
+        self.attention = RotaryAttention(d_model=d_model,
+                                         nhead=nhead,
+                                         dropout=dropout,
+                                         num_temp=num_temp)
         self.linear1 = nn.Linear(in_features=d_model, out_features=ff)
         self.dropout = nn.Dropout(p=dropout)
         self.linear2 = nn.Linear(in_features=ff, out_features=d_model)
@@ -202,9 +216,8 @@ class RotaryTransformerLayer(nn.Module):
         self.dropout2 = nn.Dropout(p=dropout)
 
     def forward(
-        self,
-        batch: Tuple[Tensor, Tensor, Tensor],
-    ) -> Tuple[Tensor, Tensor, Tensor]:
+            self, batch: Tuple[Tensor, Tensor,
+                               Tensor]) -> Tuple[Tensor, Tensor, Tensor]:
         """Forward pass.
 
         Args:
@@ -214,18 +227,17 @@ class RotaryTransformerLayer(nn.Module):
             Tuple of (output, temporal, mask).
 
         Shapes:
-            - data: `(batch, seq_len, d_model)`
-            - temporal: `(batch, seq_len)`
+            - data: `(batch_size, seq_len, d_model)`
+            - temporal: `(batch_size, seq_len, num_temp)`
             - mask: `(seq_len, seq_len)`
-            - output: `(batch, seq_len, d_model)`
+            - output: `(batch_size, seq_len, d_model)`
 
         Examples:
             >>> data = torch.randn(batch_size, seq_len, d_model)
-            >>> temporal = torch.randn(batch_size, seq_len)
+            >>> temporal = torch.randn(batch_size, seq_len, num_temp)
             >>> mask = torch.zeros(seq_len, seq_len)
             >>> output, temporal, mask = rotary_transformer_layer(
-                ...     (data, temporal, mask)
-                ... )"""
+                ...     (data, temporal, mask))"""
         data, temporal, mask = batch
         attention = data + self.dropout1(
             self.attention(self.norm1(data), temporal, mask))
@@ -250,27 +262,16 @@ class TransformerLayer(nn.Module):
     Examples:
         >>> from model.attention import TransformerLayer
         >>> transformer_layer = TransformerLayer(
-            ...     d_model=512,
-            ...     dropout=0.1,
-            ...     ff=2048,
-            ...     nhead=8,
-            ... )"""
-    def __init__(
-        self,
-        d_model: int,
-        dropout: float,
-        ff: int,
-        nhead: int,
-    ) -> None:
+            ...     d_model=512, dropout=0.1, ff=2048, nhead=8)"""
+    def __init__(self, d_model: int, dropout: float, ff: int,
+                 nhead: int) -> None:
         super().__init__()
-        self.layer = nn.TransformerEncoderLayer(
-            d_model=d_model,
-            nhead=nhead,
-            dim_feedforward=ff,
-            dropout=dropout,
-            batch_first=True,
-            norm_first=True,
-        )
+        self.layer = nn.TransformerEncoderLayer(d_model=d_model,
+                                                nhead=nhead,
+                                                dim_feedforward=ff,
+                                                dropout=dropout,
+                                                batch_first=True,
+                                                norm_first=True)
 
     def forward(self, batch: Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tensor]:
         """Calculates a single transformer encoder layer.
@@ -286,9 +287,9 @@ class TransformerLayer(nn.Module):
             The encoded data and the same mask.
 
         Shapes:
-            - data: `(batch, seq_len, d_model)`
+            - data: `(batch_size, seq_len, d_model)`
             - mask: `(seq_len, seq_len)`
-            - output: `(batch, seq_len, d_model)`
+            - output: `(batch_size, seq_len, d_model)`
 
         Examples:
             >>> data = torch.randn(batch_size, seq_len, d_model)

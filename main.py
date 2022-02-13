@@ -37,15 +37,14 @@ def main(cfg: DictConfig = None) -> None:
     # Get batch size
     batch_size = cfg.train.batch_size
     # Initialize Modifier
-    modifier = Modifier(
-        num_special=cfg.data.num_special,
-        num_program=cfg.data.num_program,
-        num_note=cfg.data.num_note,
-        num_velocity=cfg.data.num_velocity,
-        num_time_num=cfg.data.num_time_num,
-        note_shift=cfg.data.note_shift,
-        velocity_scale=cfg.data.velocity_scale,
-    )
+    modifier = Modifier(num_special=cfg.data.num_special,
+                        num_program=cfg.data.num_program,
+                        num_note=cfg.data.num_note,
+                        num_velocity=cfg.data.num_velocity,
+                        num_time_num=cfg.data.num_time_num,
+                        note_shift=cfg.data.note_shift,
+                        velocity_scale=cfg.data.velocity_scale,
+                        time_scale=cfg.data.time_scale)
     # Initialize DataModule
     datamodule = MusicDataModule(
         batch_size=batch_size,
@@ -55,8 +54,7 @@ def main(cfg: DictConfig = None) -> None:
         num_workers=cfg.train.num_workers,
         data_len=cfg.model.data_len,
         augment=cfg.data.augment,
-        modifier=modifier,
-    )
+        modifier=modifier)
     # Get GPU
     devices = "auto" if cfg.train.gpus == -1 else cfg.train.gpus
     # Calculate num_token
@@ -66,32 +64,27 @@ def main(cfg: DictConfig = None) -> None:
     # If auto_batch, search for maximum possible batch size
     if cfg.train.auto_batch:
         # Initialize temporary model
-        batch_model = MusicModel(
-            d_model=cfg.model.d_model,
-            data_len=cfg.model.data_len,
-            dropout=cfg.model.dropout,
-            ff=cfg.model.ff,
-            lr=cfg.train.lr,
-            nhead=cfg.model.nhead,
-            num_layer=cfg.model.num_layer,
-            num_token=num_token,
-            segments=cfg.model.segments,
-        )
+        batch_model = MusicModel(d_model=cfg.model.d_model,
+                                 data_len=cfg.model.data_len,
+                                 dropout=cfg.model.dropout,
+                                 ff=cfg.model.ff,
+                                 lr=cfg.train.lr,
+                                 nhead=cfg.model.nhead,
+                                 num_layer=cfg.model.num_layer,
+                                 num_temp=cfg.model.num_temp,
+                                 num_token=num_token,
+                                 segments=cfg.model.segments)
         # Initialize temporary trainer
-        batch_trainer = Trainer(
-            accelerator="auto",
-            accumulate_grad_batches=2,
-            detect_anomaly=True,
-            devices=devices,
-            precision=16,
-        )
+        batch_trainer = Trainer(accelerator="auto",
+                                accumulate_grad_batches=2,
+                                detect_anomaly=True,
+                                devices=devices,
+                                precision=16)
         # Try to scale batch size
         # Prone to CUDA OOM
         try:
             batch_size = batch_trainer.tuner.scale_batch_size(
-                model=batch_model,
-                datamodule=datamodule,
-            )
+                model=batch_model, datamodule=datamodule)
             datamodule.batch_size = batch_size
         except RuntimeError:
             # If batch size scaling fails, model is likely too large
@@ -112,31 +105,26 @@ def main(cfg: DictConfig = None) -> None:
     # If auto_lr, search for optimal LR
     if cfg.train.auto_lr:
         # Initialize temporary model
-        lr_model = MusicModel(
-            d_model=cfg.model.d_model,
-            data_len=cfg.model.data_len,
-            dropout=cfg.model.dropout,
-            ff=cfg.model.ff,
-            lr=cfg.train.lr,
-            nhead=cfg.model.nhead,
-            num_layer=cfg.model.num_layer,
-            num_token=num_token,
-            segments=cfg.model.segments,
-        )
+        lr_model = MusicModel(d_model=cfg.model.d_model,
+                              data_len=cfg.model.data_len,
+                              dropout=cfg.model.dropout,
+                              ff=cfg.model.ff,
+                              lr=cfg.train.lr,
+                              nhead=cfg.model.nhead,
+                              num_layer=cfg.model.num_layer,
+                              num_temp=cfg.model.num_temp,
+                              num_token=num_token,
+                              segments=cfg.model.segments)
         # Initialize temporary trainer
-        lr_trainer = Trainer(
-            accelerator="auto",
-            accumulate_grad_batches=accumulate,
-            detect_anomaly=True,
-            devices=devices,
-            precision=16,
-        )
+        lr_trainer = Trainer(accelerator="auto",
+                             accumulate_grad_batches=accumulate,
+                             detect_anomaly=True,
+                             devices=devices,
+                             precision=16)
         # Get lr tuner
-        lr_finder = lr_trainer.tuner.lr_find(
-            model=lr_model,
-            datamodule=datamodule,
-            max_lr=0.01,
-        )
+        lr_finder = lr_trainer.tuner.lr_find(model=lr_model,
+                                             datamodule=datamodule,
+                                             max_lr=0.01)
         # Calculate optimal lr
         learning_rate = lr_finder.suggestion()
         print(f"Learning rate: {learning_rate}")
@@ -148,32 +136,29 @@ def main(cfg: DictConfig = None) -> None:
         learning_rate = cfg.train.lr
 
     # Initialize actual model
-    model = MusicModel(
-        d_model=cfg.model.d_model,
-        data_len=cfg.model.data_len,
-        dropout=cfg.model.dropout,
-        ff=cfg.model.ff,
-        lr=cfg.train.lr,
-        nhead=cfg.model.nhead,
-        num_layer=cfg.model.num_layer,
-        num_token=num_token,
-        segments=cfg.model.segments,
-    )
+    model = MusicModel(d_model=cfg.model.d_model,
+                       data_len=cfg.model.data_len,
+                       dropout=cfg.model.dropout,
+                       ff=cfg.model.ff,
+                       lr=cfg.train.lr,
+                       nhead=cfg.model.nhead,
+                       num_layer=cfg.model.num_layer,
+                       num_temp=cfg.model.num_temp,
+                       num_token=num_token,
+                       segments=cfg.model.segments)
     # Set callbacks
     callbacks = []
     if cfg.train.checkpoint:
         # Set checkpoint callback
         # Saves checkpoint with smallest validation loss
         callbacks.append(
-            ModelCheckpoint(
-                dirpath=to_absolute_path("checkpoints"),
-                filename="epoch={epoch}-val_loss={val/loss:.3f}",
-                monitor="val/loss",
-                save_top_k=1,
-                mode="min",
-                auto_insert_metric_name=False,
-                save_weights_only=True,
-            ))
+            ModelCheckpoint(dirpath=to_absolute_path("checkpoints"),
+                            filename="epoch={epoch}-val_loss={val/loss:.3f}",
+                            monitor="val/loss",
+                            save_top_k=1,
+                            mode="min",
+                            auto_insert_metric_name=False,
+                            save_weights_only=True))
     if cfg.train.monitor:
         # Set device stat monitor
         callbacks.append(DeviceStatsMonitor())
@@ -182,30 +167,25 @@ def main(cfg: DictConfig = None) -> None:
         # Moonitors validation loss, stops training when improvements stop
         callbacks.append(EarlyStopping(monitor="val/loss", mode="min"))
     # Setup W&B Logger
-    logger = WandbLogger(
-        project="music-model",
-        save_dir=to_absolute_path("."),
-        offline=True,
-    )
+    logger = WandbLogger(project="music-transformer",
+                         save_dir=to_absolute_path("."))
     # Stops after max_time elapses
     max_time = None if cfg.train.max_time == "" else cfg.train.max_time
     # Initialize actual trainer
-    trainer = Trainer(
-        accelerator="auto",
-        accumulate_grad_batches=accumulate,
-        callbacks=callbacks,
-        detect_anomaly=True,
-        devices=devices,
-        fast_dev_run=cfg.train.fast_dev_run,
-        limit_train_batches=cfg.train.limit_batches,
-        limit_val_batches=cfg.train.limit_batches,
-        limit_test_batches=cfg.train.limit_batches,
-        log_every_n_steps=1,
-        logger=[logger],
-        max_time=max_time,
-        num_sanity_val_steps=2,
-        precision=16,
-    )
+    trainer = Trainer(accelerator="auto",
+                      accumulate_grad_batches=accumulate,
+                      callbacks=callbacks,
+                      detect_anomaly=True,
+                      devices=devices,
+                      fast_dev_run=cfg.train.fast_dev_run,
+                      limit_train_batches=cfg.train.limit_batches,
+                      limit_val_batches=cfg.train.limit_batches,
+                      limit_test_batches=cfg.train.limit_batches,
+                      log_every_n_steps=1,
+                      logger=[logger],
+                      max_time=max_time,
+                      num_sanity_val_steps=2,
+                      precision=16)
 
     # Run optimization & testing
     trainer.fit(model=model, datamodule=datamodule)

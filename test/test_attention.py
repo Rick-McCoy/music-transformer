@@ -13,12 +13,15 @@ class TestAttention(unittest.TestCase):
         with initialize(config_path="../config"):
             cfg = compose(config_name="main")
             self.cfg = cfg
-            self.rotary_attention = RotaryAttention(d_model=cfg.model.d_model,
-                                                    nhead=cfg.model.nhead,
-                                                    dropout=cfg.model.dropout)
+            self.rotary_attention = RotaryAttention(
+                d_model=cfg.model.d_model,
+                nhead=cfg.model.nhead,
+                num_temp=cfg.model.num_temp,
+                dropout=cfg.model.dropout)
             self.rotary_transformer_layer = RotaryTransformerLayer(
                 d_model=cfg.model.d_model,
                 nhead=cfg.model.nhead,
+                num_temp=cfg.model.num_temp,
                 ff=cfg.model.ff,
                 dropout=cfg.model.dropout)
             self.transformer_layer = TransformerLayer(
@@ -33,7 +36,8 @@ class TestAttention(unittest.TestCase):
         Simply runs a sample input through the attention.
         Checks for output shape."""
         data = torch.randn(8, self.cfg.model.data_len, self.cfg.model.d_model)
-        temporal = torch.randn(8, self.cfg.model.data_len)
+        temporal = torch.randn(8, self.cfg.model.data_len,
+                               self.cfg.model.num_temp)
         mask = torch.zeros(self.cfg.model.data_len, self.cfg.model.data_len)
         output = self.rotary_attention(data, temporal, mask)
         self.assertEqual(output.size(),
@@ -45,7 +49,8 @@ class TestAttention(unittest.TestCase):
         Simply runs a sample input through the layer.
         Checks for output shape."""
         data = torch.randn(8, self.cfg.model.data_len, self.cfg.model.d_model)
-        temporal = torch.randn(8, self.cfg.model.data_len)
+        temporal = torch.randn(8, self.cfg.model.data_len,
+                               self.cfg.model.num_temp)
         mask = torch.zeros(self.cfg.model.data_len, self.cfg.model.data_len)
         output, new_temporal, new_mask = self.rotary_transformer_layer(
             (data, temporal, mask))

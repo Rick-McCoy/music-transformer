@@ -47,15 +47,17 @@ class MusicDataset(Dataset):
         If the length of the tokens array is less than self.length, the tokens
         array is padded with PAD.
         PAD, START, END are defined as 0, 1, 2 respectively.
+        Also returns temporal positions.
 
         Args:
             index: Index of item (required).
 
         Returns:
-            Numpy array of tokens.
+            Tuple of tokens, temporal positions
 
         Shape:
-            tokens: (self.length,)"""
+            tokens: (self.length,)
+            positions: (self.length,)"""
 
         # Get filename of preprocessed file.
         filename = Path(self.process_dir,
@@ -65,13 +67,14 @@ class MusicDataset(Dataset):
         # Augment tokens if self.augment is True.
         if self.augment:
             tokens = self.modifier.augment(tokens)
-        # Flatten tokens.
-        tokens = self.modifier.flatten(tokens)
-        # Pad tokens
-        tokens = self.modifier.pad_or_slice(tokens, self.length)
+        # Flatten tokens and get temporal positions.
+        tokens, positions = self.modifier.flatten(tokens)
+        # Pad tokens and positions.
+        tokens, positions = self.modifier.pad_or_slice(tokens, positions,
+                                                       self.length)
 
-        # Return tokens
-        return tokens
+        # Return tokens and temporal positions.
+        return tokens, positions
 
     def __len__(self):
         """Get length of dataset."""
@@ -92,17 +95,9 @@ class MusicDataModule(LightningDataModule):
         data_len: Length of data (required).
         augment: Whether to augment data (required).
         modifier: Modifier instance (required)."""
-    def __init__(
-        self,
-        batch_size: int,
-        data_dir: Path,
-        text_dir: Path,
-        process_dir: Path,
-        num_workers: int,
-        data_len: int,
-        augment: bool,
-        modifier: Modifier,
-    ):
+    def __init__(self, batch_size: int, data_dir: Path, text_dir: Path,
+                 process_dir: Path, num_workers: int, data_len: int,
+                 augment: bool, modifier: Modifier):
         super().__init__()
         self.batch_size = batch_size
         self.rng = np.random.default_rng()
@@ -131,49 +126,37 @@ class MusicDataModule(LightningDataModule):
         test_path_list = path_list[-test_len:]
 
         if stage == "fit" or stage == "validate" or stage is None:
-            full_dataset = MusicDataset(
-                data_len=self.data_len,
-                augment=self.augment,
-                path_list=full_path_list,
-                process_dir=self.process_dir,
-                modifier=self.modifier,
-            )
+            full_dataset = MusicDataset(data_len=self.data_len,
+                                        augment=self.augment,
+                                        path_list=full_path_list,
+                                        process_dir=self.process_dir,
+                                        modifier=self.modifier)
             self.train_dataset, self.val_dataset = random_split(
-                full_dataset,
-                [train_len, val_len],
-            )
+                full_dataset, [train_len, val_len])
         if stage == "test" or stage == "predict" or stage is None:
-            self.test_dataset = MusicDataset(
-                data_len=self.data_len,
-                augment=self.augment,
-                path_list=test_path_list,
-                process_dir=self.process_dir,
-                modifier=self.modifier,
-            )
+            self.test_dataset = MusicDataset(data_len=self.data_len,
+                                             augment=self.augment,
+                                             path_list=test_path_list,
+                                             process_dir=self.process_dir,
+                                             modifier=self.modifier)
 
     def train_dataloader(self) -> DataLoader:
-        return DataLoader(
-            self.train_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=self.num_workers,
-            pin_memory=True,
-        )
+        return DataLoader(self.train_dataset,
+                          batch_size=self.batch_size,
+                          shuffle=True,
+                          num_workers=self.num_workers,
+                          pin_memory=True)
 
     def val_dataloader(self) -> DataLoader:
-        return DataLoader(
-            self.val_dataset,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=self.num_workers,
-            pin_memory=True,
-        )
+        return DataLoader(self.val_dataset,
+                          batch_size=self.batch_size,
+                          shuffle=False,
+                          num_workers=self.num_workers,
+                          pin_memory=True)
 
     def test_dataloader(self) -> DataLoader:
-        return DataLoader(
-            self.test_dataset,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=self.num_workers,
-            pin_memory=True,
-        )
+        return DataLoader(self.test_dataset,
+                          batch_size=self.batch_size,
+                          shuffle=False,
+                          num_workers=self.num_workers,
+                          pin_memory=True)

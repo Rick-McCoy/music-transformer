@@ -22,6 +22,7 @@ class TestTransformer(unittest.TestCase):
                                            ff=cfg.model.ff,
                                            nhead=cfg.model.nhead,
                                            num_layer=cfg.model.num_layer,
+                                           num_temp=cfg.model.num_temp,
                                            num_token=self.num_token,
                                            segments=cfg.model.segments)
 
@@ -31,10 +32,12 @@ class TestTransformer(unittest.TestCase):
         Simply runs a sample input through the transformer.
         Checks for output shape."""
         data = torch.ones(8, self.cfg.model.data_len, dtype=torch.int64)
-        output = self.transformer(data)
+        temp = torch.ones(8, self.cfg.model.data_len, dtype=torch.float)
+        output = self.transformer(data, temp)
         self.assertEqual(output.size(),
                          (8, self.num_token, self.cfg.model.data_len))
         data = torch.ones(8, self.cfg.model.data_len * 2, dtype=torch.int64)
-        output = self.transformer(data)
+        temp = torch.ones(8, self.cfg.model.data_len * 2, dtype=torch.float)
+        output = self.transformer(data, temp)
         self.assertEqual(output.size(),
                          (8, self.num_token, self.cfg.model.data_len * 2))
