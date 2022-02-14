@@ -22,7 +22,7 @@ class MusicModel(LightningModule):
         lr: Learning rate (required).
         nhead: Number of heads in multi-head attention (required).
         num_layer: Number of layers in Transformer (required).
-        num_temp: Number of temporal columns (required).
+        num_pos: Number of position columns (required).
         num_token: Number of tokens (required).
         segments: Number of segments in gradient checkpointing (required).
 
@@ -34,11 +34,11 @@ class MusicModel(LightningModule):
         ...                    lr=0.001,
         ...                    nhead=8,
         ...                    num_layer=16,
-        ...                    num_temp=4,
+        ...                    num_pos=4,
         ...                    num_token=1024,
         ...                    segments=4)"""
     def __init__(self, d_model: int, data_len: int, dropout: float, ff: int,
-                 lr: float, nhead: int, num_layer: int, num_temp: int,
+                 lr: float, nhead: int, num_layer: int, num_pos: int,
                  num_token: int, segments: int) -> None:
         super().__init__()
         self.save_hyperparameters()
@@ -49,13 +49,16 @@ class MusicModel(LightningModule):
                                        ff=ff,
                                        nhead=nhead,
                                        num_layer=num_layer,
-                                       num_temp=num_temp,
+                                       num_pos=num_pos,
                                        num_token=num_token,
                                        segments=segments)
         self.loss = SimpleLoss()
         self.acc = SimpleAccuracy()
         self.example_input_array = (torch.ones(1, data_len, dtype=torch.int64),
-                                    torch.ones(1, data_len, dtype=torch.float))
+                                    torch.ones(1,
+                                               data_len,
+                                               num_pos - 1,
+                                               dtype=torch.float))
 
     def forward(self, data: Tensor, position: Tensor) -> Tensor:
         return self.transformer(data, position)

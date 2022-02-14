@@ -70,11 +70,13 @@ class Event:
         self.time = time
 
     def __repr__(self):
-        return f"Event(program={self.program}, note={self.note}, velocity={self.velocity}, time={self.time})"
+        return f"Event(program={self.program}, note={self.note}, \
+velocity={self.velocity}, time={self.time})"
 
     def __str__(self):
         event_type = "NOTE_ON" if self.velocity > 0 else "NOTE_OFF"
-        return f"{event_type} program={self.program}, note={self.note}, velocity={self.velocity}, time={self.time}"
+        return f"{event_type} program={self.program}, note={self.note}, \
+velocity={self.velocity}, time={self.time}"
 
     def __eq__(self, __o: object) -> bool:
         if not isinstance(__o, Event):
@@ -91,8 +93,8 @@ class Converter:
     - note
     - velocity
     - time_num
-    - time_denum
-    Where time_num and time_denum are the numerator and denominator of the delta
+    - time_den
+    Where time_num and time_den are the numerator and denominator of the delta
     time of the event.
 
     The delta time is simplified to the nearest fraction in which the numerator
@@ -123,17 +125,17 @@ class Converter:
                 delta_time = Fraction(simple_limit)
             # Calculate time numerator and denominator
             time_num = delta_time.numerator
-            time_denum = delta_time.denominator
+            time_den = delta_time.denominator
             # Simplify time
             interval = 0
             # If numerator > denominator, then numerator must be less than simple_limit
             # Therefore interval is inverse of what the maximum denominator can be
             # i.e. floor(denominator * simple_limit / numerator)
-            if time_num > time_denum and time_num > simple_limit:
-                interval = 1 / np.floor(time_denum * simple_limit / time_num)
+            if time_num > time_den and time_num > simple_limit:
+                interval = 1 / np.floor(time_den * simple_limit / time_num)
             # If denominator > numerator, then denominator must be less than simple_limit
             # Therefore interval is simply inverse of simple_limit
-            elif time_denum > time_num and time_denum > simple_limit:
+            elif time_den > time_num and time_den > simple_limit:
                 interval = 1 / simple_limit
 
             # If interval is positive, simplify time by calling simplify(lower, upper)
@@ -143,11 +145,11 @@ class Converter:
                                 delta_time + interval / 2)
                 # Update numerator & denominator
                 time_num = time.numerator
-                time_denum = time.denominator
+                time_den = time.denominator
 
             # Append token to list of tokens
             tokens.append([
-                event.program, event.note, event.velocity, time_num, time_denum
+                event.program, event.note, event.velocity, time_num, time_den
             ])
             # Update current time
             current_time = event.time
@@ -171,9 +173,9 @@ class Converter:
         # Iterate through tokens
         for token in tokens:
             # Parse token
-            program, note, velocity, time_num, time_denum = token
+            program, note, velocity, time_num, time_den = token
             # Update current time
-            current_time += Fraction(time_num, time_denum)
+            current_time += Fraction(time_num, time_den)
             # Append event to list of events
             events.append(Event(program, note, velocity, current_time))
 
@@ -190,7 +192,7 @@ class Modifier:
         self.note_offset = self.program_offset + num_program
         self.velocity_offset = self.note_offset + num_note
         self.time_num_offset = self.velocity_offset + num_velocity
-        self.time_denum_offset = self.time_num_offset + num_time_num
+        self.time_den_offset = self.time_num_offset + num_time_num
         self.note_max = num_note - 1
         self.velocity_max = num_velocity - 1
         self.note_shift = note_shift
@@ -205,8 +207,8 @@ class Modifier:
         """Augment a 2d numpy array of tokens.
 
         A token consists of five columns:
-        [program, note, velocity, time_num, time_denum],
-        where time_num and time_denum are the numerator and denominator of the
+        [program, note, velocity, time_num, time_den],
+        where time_num and time_den are the numerator and denominator of the
         delta time.
         We randomly sample a note offset from a integer range of [-self.note_shift,
         self.note_shift].
@@ -260,33 +262,61 @@ class Modifier:
         time_sum = 0
         # Initialize temporal positions
         temporal_positions = []
+        # Store previous note
+        previous_note = 0
+        # Initialize note positions
+        note_positions = []
+        # Store previous velocity
+        previous_velocity = 0
+        # Initialize velocity positions
+        velocity_positions = []
         # Iterate through tokens
         for token in tokens:
-            program, note, velocity, time_num, time_denum = token
+            program, note, velocity, time_num, time_den = token
             # If time is not zero, append time numerator and denominator
             if time_num > 0:
                 flattened_tokens.append(time_num + self.time_num_offset)
-                flattened_tokens.append(time_denum + self.time_denum_offset)
+                flattened_tokens.append(time_den + self.time_den_offset)
                 # Append time_sum to temporal positions
                 temporal_positions.append(time_sum * self.time_scale)
                 temporal_positions.append(time_sum * self.time_scale)
-            # Add time numerator and denominator to time_sum
-            time_sum += time_num / time_denum
+                # Add time numerator and denominator to time_sum
+                time_sum += time_num / time_den
+                # Append note to note positions
+                note_positions.append(previous_note)
+                note_positions.append(previous_note)
+                # Append velocity to velocity positions
+                velocity_positions.append(previous_velocity)
+                velocity_positions.append(previous_velocity)
             # Append program, note
             flattened_tokens.append(program + self.program_offset)
             flattened_tokens.append(note + self.note_offset)
             # Append time_sum to temporal positions
             temporal_positions.append(time_sum * self.time_scale)
             temporal_positions.append(time_sum * self.time_scale)
+            # Append note to note positions
+            note_positions.append(previous_note)
+            note_positions.append(previous_note)
+            # Append velocity to velocity positions
+            velocity_positions.append(previous_velocity)
+            velocity_positions.append(previous_velocity)
             # If velocity is not zero, append velocity
             if velocity > 0:
                 flattened_tokens.append(velocity + self.velocity_offset)
                 # Append time_sum to temporal positions
                 temporal_positions.append(time_sum * self.time_scale)
+                # Append note to note positions
+                note_positions.append(previous_note)
+                # Append velocity to velocity positions
+                velocity_positions.append(previous_velocity)
+            # Update previous note
+            previous_note = note
+            # Update previous velocity
+            previous_velocity = velocity
         # Convert flattened tokens to numpy array
-        return np.array(flattened_tokens,
-                        dtype=np.int64), np.array(temporal_positions,
-                                                  dtype=np.float32)
+        return np.array(flattened_tokens, dtype=np.int64), np.stack(
+            [temporal_positions, note_positions, velocity_positions],
+            axis=-1).astype(np.float32)
 
     def unflatten(self, tokens: ndarray) -> ndarray:
         """Unflattens a 1d numpy array of tokens.
@@ -302,27 +332,34 @@ class Modifier:
         # Initialize unflattened tokens
         unflattened_tokens = []
         program = 0
+        time_num = 0
         # Iterate through tokens
         for token in tokens:
             if self.program_offset <= token < self.note_offset:
-                # Set program
-                program = token - self.program_offset
+                # If previous token has no program, set program to token
+                if unflattened_tokens and unflattened_tokens[-1][0] == -1:
+                    unflattened_tokens[-1][0] = token - self.program_offset
+                # Otherwise, set program
+                else:
+                    program = token - self.program_offset
             elif self.note_offset <= token < self.velocity_offset:
-                # Append program, note
-                unflattened_tokens.append(
-                    [program, token - self.note_offset, 0, 0, 1])
+                # If previous token has no note, set note to token
+                if unflattened_tokens and unflattened_tokens[-1][1] == -1:
+                    unflattened_tokens[-1][1] = token - self.note_offset
+                # If program is not -1, append program and note
+                elif program != -1:
+                    unflattened_tokens.append(
+                        [program, token - self.note_offset, 0, 0, 1])
             elif self.velocity_offset <= token < self.time_num_offset:
                 # Update token if tokens exist
                 if unflattened_tokens:
                     unflattened_tokens[-1][2] = token - self.velocity_offset
-            elif self.time_num_offset <= token < self.time_denum_offset:
-                # Update token if tokens exist
-                if unflattened_tokens:
-                    unflattened_tokens[-1][3] = token - self.time_num_offset
-            elif self.time_denum_offset <= token:
-                # Update token if tokens exist
-                if unflattened_tokens:
-                    unflattened_tokens[-1][4] = token - self.time_denum_offset
+            elif self.time_num_offset <= token < self.time_den_offset:
+                # Set time numerator
+                time_num = token - self.time_num_offset
+            elif self.time_den_offset <= token:
+                unflattened_tokens.append(
+                    [-1, -1, 0, time_num, token - self.time_den_offset])
 
         # Convert unflattened tokens to numpy array
         return np.array(unflattened_tokens, dtype=np.uint8)
@@ -335,13 +372,15 @@ class Modifier:
         the tokens are padded with PAD.
         If the length of the tokens is greater than the given length,
         a random slice of the tokens is returned.
+        The same is true for the positions.
 
         Args:
             tokens: 1d numpy array of tokens (required).
+            positions: 2d numpy array of positions (required).
             length: Length of padded tokens (required).
 
         Returns:
-            A 1d numpy array of tokens of length `length`."""
+            A Tuple of padded tokens and positions of length `length`."""
 
         # Pad begin & end tokens
         tokens = np.concatenate([[self.begin], tokens, [self.end]])

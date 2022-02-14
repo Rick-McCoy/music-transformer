@@ -59,7 +59,7 @@ def main(cfg: DictConfig = None) -> None:
     devices = "auto" if cfg.train.gpus == -1 else cfg.train.gpus
     # Calculate num_token
     num_token = cfg.data.num_special + cfg.data.num_program + cfg.data.num_note \
-        + cfg.data.num_velocity + cfg.data.num_time_num + cfg.data.num_time_denum
+        + cfg.data.num_velocity + cfg.data.num_time_num + cfg.data.num_time_den
 
     # If auto_batch, search for maximum possible batch size
     if cfg.train.auto_batch:
@@ -71,7 +71,7 @@ def main(cfg: DictConfig = None) -> None:
                                  lr=cfg.train.lr,
                                  nhead=cfg.model.nhead,
                                  num_layer=cfg.model.num_layer,
-                                 num_temp=cfg.model.num_temp,
+                                 num_pos=cfg.model.num_pos,
                                  num_token=num_token,
                                  segments=cfg.model.segments)
         # Initialize temporary trainer
@@ -112,7 +112,7 @@ def main(cfg: DictConfig = None) -> None:
                               lr=cfg.train.lr,
                               nhead=cfg.model.nhead,
                               num_layer=cfg.model.num_layer,
-                              num_temp=cfg.model.num_temp,
+                              num_pos=cfg.model.num_pos,
                               num_token=num_token,
                               segments=cfg.model.segments)
         # Initialize temporary trainer
@@ -143,7 +143,7 @@ def main(cfg: DictConfig = None) -> None:
                        lr=cfg.train.lr,
                        nhead=cfg.model.nhead,
                        num_layer=cfg.model.num_layer,
-                       num_temp=cfg.model.num_temp,
+                       num_pos=cfg.model.num_pos,
                        num_token=num_token,
                        segments=cfg.model.segments)
     # Set callbacks

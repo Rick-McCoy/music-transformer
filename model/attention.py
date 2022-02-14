@@ -44,13 +44,13 @@ class RotaryAttention(nn.Module):
     Args:
         d_model: Dimension of the model (required).
         nhead: Number of heads (required).
-        num_temp: Number of temporal columns (required).
+        num_pos: Number of position columns (required).
         dropout: Dropout probability (required).
 
     Examples:
         >>> from model.attention import RotaryAttention
-        >>> rotary_attention = RotaryAttention(d_model=512, nhead=8, num_temp=4, dropout=0.1)"""
-    def __init__(self, d_model: int, nhead: int, num_temp: int,
+        >>> rotary_attention = RotaryAttention(d_model=512, nhead=8, num_pos=4, dropout=0.1)"""
+    def __init__(self, d_model: int, nhead: int, num_pos: int,
                  dropout: float) -> None:
         super().__init__()
         self.query_linear = nn.Linear(in_features=d_model,
@@ -59,7 +59,7 @@ class RotaryAttention(nn.Module):
         self.value_linear = nn.Linear(in_features=d_model,
                                       out_features=d_model)
         self.dropout = nn.Dropout(p=dropout)
-        dim = d_model // nhead // num_temp
+        dim = d_model // nhead // num_pos
         freq = torch.pow(10000, -torch.arange(0, dim, 2) / dim)
         freq = torch.repeat_interleave(freq, repeats=2, dim=0)
         self.register_buffer("freq", freq)
@@ -72,7 +72,7 @@ class RotaryAttention(nn.Module):
 
         Args:
             data: Input data (required).
-            temporal: Tenmporal data (required).
+            positions: Tenmporal data (required).
 
         Returns:
             Rotary embeddings.
@@ -101,12 +101,12 @@ class RotaryAttention(nn.Module):
 
         return rotary_data
 
-    def forward(self, data: Tensor, temporal: Tensor, mask: Tensor) -> Tensor:
+    def forward(self, data: Tensor, positions: Tensor, mask: Tensor) -> Tensor:
         """Forward pass.
 
         Args:
             data: Input data (required).
-            temporal: Temporal data (required).
+            positions: Positional data (required).
             mask: Mask for the input (required).
 
         Returns:
@@ -114,15 +114,15 @@ class RotaryAttention(nn.Module):
 
         Shapes:
             - data: `(batch_size, seq_len, d_model)`
-            - temporal: `(batch_size, seq_len, num_temp)`
+            - positions: `(batch_size, seq_len, num_pos)`
             - mask: `(seq_len, seq_len)`
             - output: `(batch_size, seq_len, d_model)`
 
         Examples:
             >>> data = torch.randn(batch_size, seq_len, d_model)
-            >>> temporal = torch.randn(batch_size, seq_len, num_temp)
+            >>> positions = torch.randn(batch_size, seq_len, num_pos)
             >>> mask = torch.zeros(seq_len, seq_len)
-            >>> output, _, _ = rotary_attention(data, temporal, mask)"""
+            >>> output, _, _ = rotary_attention(data, positions, mask)"""
 
         # Calculate query, key, value
         # Shape: `(batch_size, seq_len, d_model)`
@@ -137,8 +137,8 @@ class RotaryAttention(nn.Module):
         value = value.unflatten(-1, (self.nhead, -1))
 
         # Calculate frequency
-        # Shape: `(batch_size, seq_len, num_temp, d_model // nhead // num_temp)`
-        freqs = torch.einsum("blt,d->bltd", temporal, self.freq)
+        # Shape: `(batch_size, seq_len, num_pos, d_model // nhead // num_pos)`
+        freqs = torch.einsum("blt,d->bltd", positions, self.freq)
 
         # Flatten frequency
         # Shape: `(batch_size, seq_len, d_model // nhead)`
@@ -186,27 +186,27 @@ class RotaryTransformerLayer(nn.Module):
     - output1 = input + dropout(attention(norm(input)))
     - output2 = output1 + dropout(FF(RELU(FF(norm(output1)))))
 
-    Temporal & Mask are forwarded for gradient checkponting.
+    Positions & Mask are forwarded for gradient checkponting.
 
     Args:
         d_model: Transformer hidden dimension size (required).
         dropout: Dropout probability (required).
         ff: Feed-forward dimension size (required).
         nhead: Number of heads (required).
-        num_temp: Number of temporal columns (required).
+        num_pos: Number of position columns (required).
 
     Examples:
         >>> from model.attention import RotaryTransformerLayer
         >>> rotary_transformer_layer = RotaryTransformerLayer(
             ...     d_model=512, dropout=0.1, ff=2048,
-            ...     nhead=8, num_temp=4)"""
+            ...     nhead=8, num_pos=4)"""
     def __init__(self, d_model: int, dropout: float, ff: int, nhead: int,
-                 num_temp: int) -> None:
+                 num_pos: int) -> None:
         super().__init__()
         self.attention = RotaryAttention(d_model=d_model,
                                          nhead=nhead,
                                          dropout=dropout,
-                                         num_temp=num_temp)
+                                         num_pos=num_pos)
         self.linear1 = nn.Linear(in_features=d_model, out_features=ff)
         self.dropout = nn.Dropout(p=dropout)
         self.linear2 = nn.Linear(in_features=ff, out_features=d_model)
@@ -221,30 +221,30 @@ class RotaryTransformerLayer(nn.Module):
         """Forward pass.
 
         Args:
-            batch: Tuple of (data, temporal, mask) (required).
+            batch: Tuple of (data, positions, mask) (required).
 
         Returns:
-            Tuple of (output, temporal, mask).
+            Tuple of (output, positions, mask).
 
         Shapes:
             - data: `(batch_size, seq_len, d_model)`
-            - temporal: `(batch_size, seq_len, num_temp)`
+            - positions: `(batch_size, seq_len, num_pos)`
             - mask: `(seq_len, seq_len)`
             - output: `(batch_size, seq_len, d_model)`
 
         Examples:
             >>> data = torch.randn(batch_size, seq_len, d_model)
-            >>> temporal = torch.randn(batch_size, seq_len, num_temp)
+            >>> positions = torch.randn(batch_size, seq_len, num_pos)
             >>> mask = torch.zeros(seq_len, seq_len)
-            >>> output, temporal, mask = rotary_transformer_layer(
-                ...     (data, temporal, mask))"""
-        data, temporal, mask = batch
+            >>> output, positions, mask = rotary_transformer_layer(
+                ...     (data, positions, mask))"""
+        data, positions, mask = batch
         attention = data + self.dropout1(
-            self.attention(self.norm1(data), temporal, mask))
+            self.attention(self.norm1(data), positions, mask))
         feedforward = data + self.dropout2(
             self.linear2(
                 self.dropout(torch.relu(self.linear1(self.norm2(attention))))))
-        return feedforward, temporal, mask
+        return feedforward, positions, mask
 
 
 class TransformerLayer(nn.Module):

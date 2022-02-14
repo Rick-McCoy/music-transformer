@@ -5,7 +5,7 @@ num_program: 129
 num_note: 128
 num_velocity: 128
 num_time_num: 256
-num_time_denum: 256
+num_time_den: 256
 process_dir: ["data", "process"]
 augment: False
 note_shift: 3

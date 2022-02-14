@@ -54,13 +54,12 @@ class TestDataModule(unittest.TestCase):
             data, position = next(iter(dataloader))
             self.assertIsInstance(data, Tensor)
             self.assertEqual(data.dtype, torch.int64)
-            self.assertEqual(data.size(), (
-                self.cfg.train.batch_size,
-                self.cfg.model.data_len + 1,
-            ))
+            self.assertEqual(
+                data.size(),
+                (self.cfg.train.batch_size, self.cfg.model.data_len + 1))
             self.assertIsInstance(position, Tensor)
             self.assertEqual(position.dtype, torch.float32)
-            self.assertEqual(position.size(), (
-                self.cfg.train.batch_size,
-                self.cfg.model.data_len + 1,
-            ))
+            self.assertEqual(
+                position.size(),
+                (self.cfg.train.batch_size, self.cfg.model.data_len + 1,
+                 self.cfg.model.num_pos - 1))

@@ -1,6 +1,6 @@
 """Implements Dataset and DataModule classes."""
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from hydra.utils import to_absolute_path
 import numpy as np
@@ -35,7 +35,7 @@ class MusicDataset(Dataset):
         self.process_dir = process_dir
         self.modifier = modifier
 
-    def __getitem__(self, index: int) -> ndarray:
+    def __getitem__(self, index: int) -> Tuple[ndarray, ndarray]:
         """Get item corresponding to index.
 
         Extracts numpy array of tokens from preprocessed .npy file.
@@ -47,13 +47,13 @@ class MusicDataset(Dataset):
         If the length of the tokens array is less than self.length, the tokens
         array is padded with PAD.
         PAD, START, END are defined as 0, 1, 2 respectively.
-        Also returns temporal positions.
+        Also returns positions.
 
         Args:
             index: Index of item (required).
 
         Returns:
-            Tuple of tokens, temporal positions
+            Tuple of tokens, positions
 
         Shape:
             tokens: (self.length,)
@@ -67,13 +67,13 @@ class MusicDataset(Dataset):
         # Augment tokens if self.augment is True.
         if self.augment:
             tokens = self.modifier.augment(tokens)
-        # Flatten tokens and get temporal positions.
+        # Flatten tokens and get positions.
         tokens, positions = self.modifier.flatten(tokens)
         # Pad tokens and positions.
         tokens, positions = self.modifier.pad_or_slice(tokens, positions,
                                                        self.length)
 
-        # Return tokens and temporal positions.
+        # Return tokens and positions.
         return tokens, positions
 
     def __len__(self):

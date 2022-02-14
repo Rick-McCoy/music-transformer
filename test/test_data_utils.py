@@ -8,7 +8,8 @@ from hydra.utils import to_absolute_path
 from mido import MidiFile, MidiTrack, Message
 import numpy as np
 
-from data.utils import Event, Converter, Modifier, process_tokens, midi_to_events, events_to_midi, simplify
+from data.utils import (Event, Converter, Modifier, process_tokens,
+                        midi_to_events, events_to_midi, simplify)
 
 
 class TestDataUtils(unittest.TestCase):
@@ -30,7 +31,7 @@ class TestDataUtils(unittest.TestCase):
         self.num_special = cfg.data.num_special
         self.num_tokens = cfg.data.num_special + cfg.data.num_program \
                             + cfg.data.num_note + cfg.data.num_velocity \
-                            + cfg.data.num_time_num + cfg.data.num_time_denum
+                            + cfg.data.num_time_num + cfg.data.num_time_den
 
     def test_midi_to_events(self):
         """Tests `midi_to_events`.
@@ -112,7 +113,7 @@ class TestDataUtils(unittest.TestCase):
             Event(program=0, note=0, velocity=100, time=Fraction(5 / 4)),
             Event(program=0, note=0, velocity=0, time=Fraction(3 / 2)),
             Event(program=0, note=30, velocity=0, time=Fraction(3 / 2)),
-            Event(program=0, note=72, velocity=0, time=Fraction(3 / 2)),
+            Event(program=0, note=72, velocity=0, time=Fraction(3 / 2))
         ])
 
     def test_events_to_midi(self):
@@ -268,16 +269,23 @@ class TestConverter(unittest.TestCase):
         print(tokens)
         # Check tokens.
         self.assertTrue(
-            np.all(tokens == np.array([[0, 60, 100, 0, 1], [0, 0, 64, 1, 4],
-                                       [0, 0, 0, 1, 4], [0, 30, 48, 1, 4],
-                                       [0, 72, 72, 0, 1], [0, 60, 0, 1, 4],
-                                       [0, 0, 100, 1, 4], [0, 0, 0, 1, 4],
-                                       [0, 30, 0, 0, 1], [0, 72, 0, 0, 1]])))
+            np.all(tokens == np.array([
+                [0, 60, 100, 0, 1],
+                [0, 0, 64, 1, 4],
+                [0, 0, 0, 1, 4],
+                [0, 30, 48, 1, 4],
+                [0, 72, 72, 0, 1],
+                [0, 60, 0, 1, 4],
+                [0, 0, 100, 1, 4],
+                [0, 0, 0, 1, 4],
+                [0, 30, 0, 0, 1],
+                [0, 72, 0, 0, 1],
+            ])))
 
     def test_tokens_to_events(self):
         """Tests `Converter.tokens_to_events`.
 
-        See `test_events_to_tokens(self)` for token list.
+        See `TestDataUtils` for token list.
         The resulting events should be as follows:
 
         [
@@ -319,7 +327,7 @@ class TestConverter(unittest.TestCase):
             Event(program=0, note=0, velocity=100, time=Fraction(5 / 4)),
             Event(program=0, note=0, velocity=0, time=Fraction(3 / 2)),
             Event(program=0, note=30, velocity=0, time=Fraction(3 / 2)),
-            Event(program=0, note=72, velocity=0, time=Fraction(3 / 2)),
+            Event(program=0, note=72, velocity=0, time=Fraction(3 / 2))
         ])
 
 
@@ -330,6 +338,7 @@ class TestModifier(unittest.TestCase):
         with initialize(config_path="../config"):
             cfg = compose(config_name="main",
                           overrides=["model=music", "data=music"])
+        self.cfg = cfg
         self.modifier = Modifier(num_special=cfg.data.num_special,
                                  num_program=cfg.data.num_program,
                                  num_note=cfg.data.num_note,
@@ -340,13 +349,188 @@ class TestModifier(unittest.TestCase):
                                  time_scale=cfg.data.time_scale)
 
     def test_augment(self):
-        pass
+        """Tests `Modifier.augment`.
+
+        See `TestDataUtils` for token list.
+        The augmented tokens should have the same program, time_num,
+        and time_den.
+        The augmented notes and velocities should be within bounds."""
+
+        # Initialize list of tokens.
+        tokens = np.array([
+            [0, 60, 100, 0, 1],
+            [0, 0, 64, 1, 4],
+            [0, 0, 0, 1, 4],
+            [0, 30, 48, 1, 4],
+            [0, 72, 72, 0, 1],
+            [0, 60, 0, 1, 4],
+            [0, 0, 100, 1, 4],
+            [0, 0, 0, 1, 4],
+            [0, 30, 0, 0, 1],
+            [0, 72, 0, 0, 1],
+        ])
+        # Get augmented tokens.
+        augmented_tokens = self.modifier.augment(tokens)
+        # Programs should be the same.
+        self.assertTrue(np.all(tokens[:, 0] == augmented_tokens[:, 0]))
+        # time_num should be the same.
+        self.assertTrue(np.all(tokens[:, 3] == augmented_tokens[:, 3]))
+        # time_den should be the same.
+        self.assertTrue(np.all(tokens[:, 4] == augmented_tokens[:, 4]))
+        # Notes should be within bounds.
+        self.assertTrue(np.all(0 <= tokens[:, 1]))
+        self.assertTrue(np.all(tokens[:, 1] < self.cfg.data.num_note))
+        # Velocities should be within bounds.
+        self.assertTrue(np.all(0 <= tokens[:, 2]))
+        self.assertTrue(np.all(tokens[:, 2] < self.cfg.data.num_velocity))
 
     def test_flatten(self):
-        pass
+        """Tests `Modifier.flatten`.
+
+        See `TestDataUtils` for tokens list.
+        The flattened tokens should be 1-dimensional.
+        The calculated positions should have 3 columns."""
+
+        # Initialize list of tokens.
+        tokens = np.array([
+            [0, 60, 100, 0, 1],
+            [0, 0, 64, 1, 4],
+            [0, 0, 0, 1, 4],
+            [0, 30, 48, 1, 4],
+            [0, 72, 72, 0, 1],
+            [0, 60, 0, 1, 4],
+            [0, 0, 100, 1, 4],
+            [0, 0, 0, 1, 4],
+            [0, 30, 0, 0, 1],
+            [0, 72, 0, 0, 1],
+        ])
+        # Flatten tokens.
+        flattened_tokens, positions = self.modifier.flatten(tokens)
+        # Compare tokens.
+        self.assertTrue(
+            np.all(flattened_tokens == np.array([
+                3, 192, 360, 389, 648, 3, 132, 324, 389, 648, 3, 132, 389, 648,
+                3, 162, 308, 3, 204, 332, 389, 648, 3, 192, 389, 648, 3, 132,
+                360, 389, 648, 3, 132, 3, 162, 3, 204
+            ])))
+        # Compare time positions.
+        self.assertTrue(
+            np.all(positions[:, 0] == np.array([
+                0, 0, 0, 0, 0, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5, 0.5, 0.5,
+                0.5, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 1, 1, 1,
+                1, 1.25, 1.25, 1.25, 1.25, 1.25, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5
+            ]) * self.cfg.data.time_scale))
+        # Compare note positions.
+        self.assertTrue(
+            np.all(positions[:, 1] == np.array([
+                0, 0, 0, 60, 60, 60, 60, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 30,
+                30, 72, 72, 72, 72, 60, 60, 60, 60, 60, 0, 0, 0, 0, 0, 0, 30,
+                30
+            ],
+                                               dtype=np.float32)))
+        # Compare velocity positions.
+        self.assertTrue(
+            np.all(positions[:, 2] == np.array([
+                0, 0, 0, 100, 100, 100, 100, 100, 64, 64, 64, 64, 0, 0, 0, 0,
+                0, 48, 48, 48, 72, 72, 72, 72, 0, 0, 0, 0, 0, 100, 100, 100,
+                100, 0, 0, 0, 0
+            ],
+                                               dtype=np.float32)))
 
     def test_unflatten(self):
-        pass
+        """Tests `Modifier.unflatten`.
+
+        See `test_flatten` for tokens list.
+        The unflattened tokens should be 2-dimensional."""
+
+        # Initialize list of tokens.
+        tokens = np.array([
+            3, 192, 360, 389, 648, 3, 132, 324, 389, 648, 3, 132, 389, 648, 3,
+            162, 308, 3, 204, 332, 389, 648, 3, 192, 389, 648, 3, 132, 360,
+            389, 648, 3, 132, 3, 162, 3, 204
+        ])
+        # Unflatten tokens.
+        unflattened_tokens = self.modifier.unflatten(tokens)
+        # Compare unflattened tokens.
+        self.assertTrue(
+            np.all(unflattened_tokens == np.array([
+                [0, 60, 100, 0, 1],
+                [0, 0, 64, 1, 4],
+                [0, 0, 0, 1, 4],
+                [0, 30, 48, 1, 4],
+                [0, 72, 72, 0, 1],
+                [0, 60, 0, 1, 4],
+                [0, 0, 100, 1, 4],
+                [0, 0, 0, 1, 4],
+                [0, 30, 0, 0, 1],
+                [0, 72, 0, 0, 1],
+            ])))
 
     def test_pad_or_slice(self):
-        pass
+        """Tests `Modifier.pad_or_slice`.
+
+        See `test_flatten` for tokens and positions.
+        Resulting tokens and positions should have length `length`.
+        Tokens should be bookended with BEGIN and END tokens.
+        Positions should be padded with positions[0] and positions[-1]."""
+
+        # Initialize list of tokens.
+        tokens = np.array([
+            3, 192, 360, 389, 648, 3, 132, 324, 389, 648, 3, 132, 389, 648, 3,
+            162, 308, 3, 204, 332, 389, 648, 3, 192, 389, 648, 3, 132, 360,
+            389, 648, 3, 132, 3, 162, 3, 204
+        ])
+        # Initialize positions.
+        positions = np.array([
+            [0., 0., 0.],
+            [0., 0., 0.],
+            [0., 0., 0.],
+            [0., 60., 100.],
+            [0., 60., 100.],
+            [0.25, 60., 100.],
+            [0.25, 60., 100.],
+            [0.25, 60., 100.],
+            [0.25, 0., 64.],
+            [0.25, 0., 64.],
+            [0.5, 0., 64.],
+            [0.5, 0., 64.],
+            [0.5, 0., 0.],
+            [0.5, 0., 0.],
+            [0.75, 0., 0.],
+            [0.75, 0., 0.],
+            [0.75, 0., 0.],
+            [0.75, 30., 48.],
+            [0.75, 30., 48.],
+            [0.75, 30., 48.],
+            [0.75, 72., 72.],
+            [0.75, 72., 72.],
+            [1., 72., 72.],
+            [1., 72., 72.],
+            [1., 60., 0.],
+            [1., 60., 0.],
+            [1.25, 60., 0.],
+            [1.25, 60., 0.],
+            [1.25, 60., 0.],
+            [1.25, 0., 100.],
+            [1.25, 0., 100.],
+            [1.5, 0., 100.],
+            [1.5, 0., 100.],
+            [1.5, 0., 0.],
+            [1.5, 0., 0.],
+            [1.5, 30., 0.],
+            [1.5, 30., 0.],
+        ])
+        # Pad or slice tokens.
+        padded_tokens, padded_positions = self.modifier.pad_or_slice(
+            tokens, positions, length=self.cfg.model.data_len)
+        # Compare padded tokens.
+        self.assertEqual(len(padded_tokens), self.cfg.model.data_len)
+        self.assertEqual(padded_tokens[0], self.modifier.begin)
+        self.assertEqual(padded_tokens[len(tokens) + 1], self.modifier.end)
+        for i in range(len(tokens) + 2, self.cfg.model.data_len):
+            self.assertEqual(padded_tokens[i], self.modifier.pad)
+        # Compare padded positions.
+        self.assertEqual(len(padded_positions), self.cfg.model.data_len)
+        self.assertTrue(np.all(padded_positions[0] == positions[0]))
+        for i in range(len(positions) + 1, self.cfg.model.data_len):
+            self.assertTrue(np.all(padded_positions[i] == positions[-1]))

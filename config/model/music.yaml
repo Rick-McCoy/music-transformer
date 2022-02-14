@@ -4,6 +4,6 @@ dropout: 0.1
 ff: 128
 nhead: 2
 num_layer: 2
-num_temp: 2
+num_pos: 4
 num_token: 2052
 segments: 2

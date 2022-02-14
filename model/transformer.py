@@ -20,7 +20,7 @@ class Transformer(nn.Module):
         ff: Transformer feedforward dimension size (required).
         nhead: Number of Transformer heads (required).
         num_layer: Number of Transformer layers (required).
-        num_temp: Number of temporal columns (required).
+        num_pos: Number of position columns (required).
         num_token: Number of tokens (required).
         segments: Number of segments for gradient checkpointing (required).
 
@@ -32,43 +32,28 @@ class Transformer(nn.Module):
             ...     ff=2048,
             ...     nhead=8,
             ...     num_layer=16,
-            ...     num_temp=4,
+            ...     num_pos=4,
             ...     num_token=1024,
             ...     segments=4,
             ... )"""
-    def __init__(
-        self,
-        d_model: int,
-        data_len: int,
-        dropout: float,
-        ff: int,
-        nhead: int,
-        num_layer: int,
-        num_temp: int,
-        num_token: int,
-        segments: int,
-    ) -> None:
+    def __init__(self, d_model: int, data_len: int, dropout: float, ff: int,
+                 nhead: int, num_layer: int, num_pos: int, num_token: int,
+                 segments: int) -> None:
         super().__init__()
         self.data_len = data_len
         self.embed = Embedding(d_model=d_model, num_token=num_token)
-        self.bottleneck = nn.Linear(
-            in_features=d_model,
-            out_features=d_model,
-        )
+        self.bottleneck = nn.Linear(in_features=d_model, out_features=d_model)
         self.encoder = nn.Sequential(*[
             RotaryTransformerLayer(d_model=d_model,
                                    dropout=dropout,
                                    ff=ff,
                                    nhead=nhead,
-                                   num_temp=num_temp) for _ in range(num_layer)
+                                   num_pos=num_pos) for _ in range(num_layer)
         ])
         self.norm = nn.LayerNorm((d_model, ))
         mask = nn.Transformer.generate_square_subsequent_mask(data_len)
         self.register_buffer("mask", mask)
-        self.linear = nn.Linear(
-            in_features=d_model,
-            out_features=num_token,
-        )
+        self.linear = nn.Linear(in_features=d_model, out_features=num_token)
         self.segments = segments
 
     def forward(self, data: Tensor, position: Tensor) -> Tensor:
@@ -86,6 +71,9 @@ class Transformer(nn.Module):
 
         Shapes:
             - data: `(batch, seq_len)`
+            - position: (`(batch, seq_len, num_pos)`,
+                         `(batch, seq_len, num_pos)`,
+                         `(batch, seq_len, num_pos)`)
             - output: `(batch, num_token, data_len)`
 
         Examples:
@@ -95,7 +83,13 @@ class Transformer(nn.Module):
                 ...     size=(batch_size, seq_len),
                 ...     dtype=torch.int64,
                 ... )
-            >>> output = transformer(data)"""
+            >>> position = (torch.randint(
+                ...     low=0,
+                ...     high=num_pos,
+                ...     size=(batch_size, seq_len, num_pos),
+                ...     dtype=torch.int64,
+                ... ) for _ in range(3))
+            >>> output = transformer(data, position)"""
 
         # Get sequence length
         seq_len = data.shape[1]
@@ -104,15 +98,14 @@ class Transformer(nn.Module):
         # Pass through bottleneck
         bottleneck = self.bottleneck(embed)
         # Generate integer positions
-        temporal = torch.arange(
-            start=0,
-            end=seq_len,
-            step=1,
-            dtype=torch.float32,
-            device=bottleneck.device,
-        ).unsqueeze(dim=0).repeat((embed.size(0), 1))
-        # Stack position and temporal
-        position = torch.stack((temporal, position), dim=-1)
+        arange = torch.arange(start=0,
+                              end=seq_len,
+                              dtype=torch.float32,
+                              device=bottleneck.device).unsqueeze(
+                                  dim=0).unsqueeze(dim=-1).repeat(
+                                      (embed.size(0), 1, 1))
+        # Stack arange and position
+        position = torch.cat((arange, position), dim=-1)
         # Get mask
         if seq_len > self.data_len:
             mask = nn.Transformer.generate_square_subsequent_mask(seq_len)
@@ -121,11 +114,8 @@ class Transformer(nn.Module):
             mask = self.mask[:seq_len, :seq_len]
         # Pass through encoder
         # Use gradient checkpointing
-        encode, _, _ = checkpoint_sequential(
-            self.encoder,
-            self.segments,
-            (bottleneck, position, mask),
-        )
+        encode, _, _ = checkpoint_sequential(self.encoder, self.segments,
+                                             (bottleneck, position, mask))
         # Normalize
         normalize = self.norm(encode)
         # Pass through linear layer
