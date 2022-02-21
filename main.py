@@ -10,6 +10,7 @@ from pathlib import Path
 import hydra
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
+from pytorch_lightning import LightningDataModule
 from pytorch_lightning.callbacks import DeviceStatsMonitor, EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.trainer import Trainer
@@ -18,6 +19,100 @@ import torch
 from data.datamodule import MusicDataModule
 from data.utils import Modifier
 from model.model import MusicModel
+
+
+def find_batch_size(cfg: DictConfig, datamodule: LightningDataModule,
+                    num_token: int, devices: str) -> int:
+    """Find the maximum batch size for the training data.
+
+    Args:
+        cfg: Model configuration (required).
+        datamodule: Lightning data module (required).
+        num_token: Number of tokens (required).
+        devices: Devices to use (required).
+
+    Returns:
+        batch_size: The maximum batch size."""
+
+    # Initialize temporary model
+    batch_model = MusicModel(d_model=cfg.model.d_model,
+                             data_len=cfg.model.data_len,
+                             dropout=cfg.model.dropout,
+                             ff=cfg.model.ff,
+                             lr=cfg.train.lr,
+                             nhead=cfg.model.nhead,
+                             num_layer=cfg.model.num_layer,
+                             num_pos=cfg.model.num_pos,
+                             num_token=num_token,
+                             segments=cfg.model.segments)
+    # Initialize temporary trainer
+    batch_trainer = Trainer(accelerator="auto",
+                            accumulate_grad_batches=2,
+                            detect_anomaly=True,
+                            devices=devices,
+                            precision=16)
+
+    # Try to scale batch size
+    # Prone to CUDA OOM
+    try:
+        batch_size = batch_trainer.tuner.scale_batch_size(
+            model=batch_model, datamodule=datamodule)
+    except RuntimeError:
+        # If batch size scaling fails, model is likely too large
+        # Or pytorch lightning is bugged
+        # Use default batch size
+        batch_size = cfg.train.batch_size
+
+    # Clean up
+    del batch_model
+    del batch_trainer
+    gc.collect()
+    return batch_size
+
+
+def find_lr(cfg: DictConfig, datamodule: LightningDataModule, num_token: int,
+            devices: str, accumulate: int) -> float:
+    """Find the optimal learning rate for the training data.
+
+    Args:
+        cfg: Model configuration (required).
+        datamodule: Lightning data module (required).
+        num_token: Number of tokens (required).
+        devices: Devices to use (required).
+        accumulate: Number of batches to accumulate gradients (required).
+
+    Returns:
+        lr: The optimal learning rate."""
+
+    # Initialize temporary model
+    lr_model = MusicModel(d_model=cfg.model.d_model,
+                          data_len=cfg.model.data_len,
+                          dropout=cfg.model.dropout,
+                          ff=cfg.model.ff,
+                          lr=cfg.train.lr,
+                          nhead=cfg.model.nhead,
+                          num_layer=cfg.model.num_layer,
+                          num_pos=cfg.model.num_pos,
+                          num_token=num_token,
+                          segments=cfg.model.segments)
+    # Initialize temporary trainer
+    lr_trainer = Trainer(accelerator="auto",
+                         accumulate_grad_batches=accumulate,
+                         detect_anomaly=True,
+                         devices=devices,
+                         precision=16)
+    # Get lr tuner
+    lr_tuner = lr_trainer.tuner.lr_find(model=lr_model,
+                                        datamodule=datamodule,
+                                        max_lr=0.01)
+    # Calculate optimal lr
+    learning_rate = lr_tuner.suggestion()
+    print(f"Learning rate: {learning_rate}")
+    # Clean up as best as possible
+    del lr_model, lr_trainer
+    torch.cuda.empty_cache()
+    gc.collect()
+    return learning_rate
 
 
 @hydra.main(config_path="config", config_name="main")
@@ -63,37 +158,10 @@ def main(cfg: DictConfig = None) -> None:
 
     # If auto_batch, search for maximum possible batch size
     if cfg.train.auto_batch:
-        # Initialize temporary model
-        batch_model = MusicModel(d_model=cfg.model.d_model,
-                                 data_len=cfg.model.data_len,
-                                 dropout=cfg.model.dropout,
-                                 ff=cfg.model.ff,
-                                 lr=cfg.train.lr,
-                                 nhead=cfg.model.nhead,
-                                 num_layer=cfg.model.num_layer,
-                                 num_pos=cfg.model.num_pos,
-                                 num_token=num_token,
-                                 segments=cfg.model.segments)
-        # Initialize temporary trainer
-        batch_trainer = Trainer(accelerator="auto",
-                                accumulate_grad_batches=2,
-                                detect_anomaly=True,
-                                devices=devices,
-                                precision=16)
-        # Try to scale batch size
-        # Prone to CUDA OOM
-        try:
-            batch_size = batch_trainer.tuner.scale_batch_size(
-                model=batch_model, datamodule=datamodule)
-            datamodule.batch_size = batch_size
-        except RuntimeError:
-            # If batch size scaling fails, model is likely too large
-            # Or pytorch lightning is bugged
-            return
-        # Clean up as best as possible
-        del batch_model, batch_trainer
-        torch.cuda.empty_cache()
-        gc.collect()
+        batch_size = find_batch_size(cfg=cfg,
+                                     datamodule=datamodule,
+                                     num_token=num_token,
+                                     devices=devices)
 
     # Set accumulate according to effective batch size
     if cfg.train.effective_batch_size > 0:
@@ -104,34 +172,11 @@ def main(cfg: DictConfig = None) -> None:
 
     # If auto_lr, search for optimal LR
     if cfg.train.auto_lr:
-        # Initialize temporary model
-        lr_model = MusicModel(d_model=cfg.model.d_model,
-                              data_len=cfg.model.data_len,
-                              dropout=cfg.model.dropout,
-                              ff=cfg.model.ff,
-                              lr=cfg.train.lr,
-                              nhead=cfg.model.nhead,
-                              num_layer=cfg.model.num_layer,
-                              num_pos=cfg.model.num_pos,
-                              num_token=num_token,
-                              segments=cfg.model.segments)
-        # Initialize temporary trainer
-        lr_trainer = Trainer(accelerator="auto",
-                             accumulate_grad_batches=accumulate,
-                             detect_anomaly=True,
-                             devices=devices,
-                             precision=16)
-        # Get lr tuner
-        lr_finder = lr_trainer.tuner.lr_find(model=lr_model,
-                                             datamodule=datamodule,
-                                             max_lr=0.01)
-        # Calculate optimal lr
-        learning_rate = lr_finder.suggestion()
-        print(f"Learning rate: {learning_rate}")
-        # Clean up as best as possible
-        del lr_model, lr_trainer
-        torch.cuda.empty_cache()
-        gc.collect()
+        learning_rate = find_lr(cfg=cfg,
+                                datamodule=datamodule,
+                                num_token=num_token,
+                                devices=devices,
+                                accumulate=accumulate)
     else:
         learning_rate = cfg.train.lr
 
@@ -140,7 +185,7 @@ def main(cfg: DictConfig = None) -> None:
                        data_len=cfg.model.data_len,
                        dropout=cfg.model.dropout,
                        ff=cfg.model.ff,
-                       lr=cfg.train.lr,
+                       lr=learning_rate,
                        nhead=cfg.model.nhead,
                        num_layer=cfg.model.num_layer,
                        num_pos=cfg.model.num_pos,
