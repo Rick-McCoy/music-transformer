@@ -404,7 +404,8 @@ class Modifier:
         return tokens, positions
 
 
-def process_tokens(data_dir: Path, text_dir: Path, process_dir: Path) -> None:
+def process_tokens(data_dir: Path, filename_list: Path,
+                   process_dir: Path) -> None:
     """Converts all MIDI files in data_dir into tokens and saves then as UINT8
     .npy files in process_dir.
 
@@ -416,11 +417,11 @@ def process_tokens(data_dir: Path, text_dir: Path, process_dir: Path) -> None:
     and the file name are printed and the function continues.
 
     All successfully converted midi filenames are sorted and stored in `midi.txt`
-    under text_dir.
+    under filename_list.
 
     Args:
         data_dir: Path to directory containing MIDI files (required).
-        text_dir: Path to directory to store `midi.txt` (required).
+        filename_list: Path to directory to store `midi.txt` (required).
         process_dir: Path to directory to store .npy files (required).
     """
 
@@ -468,7 +469,7 @@ def process_tokens(data_dir: Path, text_dir: Path, process_dir: Path) -> None:
     # Sort filenames.
     filenames.sort()
     # Write filenames to file.
-    with open(text_dir / "midi.txt", mode="w", encoding="utf-8") as file:
+    with open(filename_list, mode="w", encoding="utf-8") as file:
         file.writelines(filenames)
 
 

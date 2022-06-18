@@ -26,13 +26,17 @@ def find_batch_size(cfg: DictConfig, datamodule: LightningDataModule,
     """Find the maximum batch size for the training data.
 
     Args:
-        cfg: Model configuration (required).
-        datamodule: Lightning data module (required).
-        num_token: Number of tokens (required).
-        devices: Devices to use (required).
+        cfg (DictConfig): Model configuration.
+        datamodule (LightningDataModule): Lightning data module.
+        num_token (int): Number of tokens.
+        devices (str): Devices to use.
 
     Returns:
-        batch_size: The maximum batch size."""
+        batch_size (int): Maximum batch size.
+
+    Example:
+        >>> from main import find_batch_size
+        >>> batch_size = find_batch_size(cfg, datamodule, num_token, devices)"""
 
     # Initialize temporary model
     batch_model = MusicModel(d_model=cfg.model.d_model,
@@ -75,11 +79,11 @@ def find_lr(cfg: DictConfig, datamodule: LightningDataModule, num_token: int,
     """Find the optimal learning rate for the training data.
 
     Args:
-        cfg: Model configuration (required).
-        datamodule: Lightning data module (required).
-        num_token: Number of tokens (required).
-        devices: Devices to use (required).
-        accumulate: Number of batches to accumulate gradients (required).
+        cfg: Model configuration .
+        datamodule: Lightning data module .
+        num_token: Number of tokens .
+        devices: Devices to use .
+        accumulate: Number of batches to accumulate gradients .
 
     Returns:
         lr: The optimal learning rate."""
@@ -144,7 +148,7 @@ def main(cfg: DictConfig = None) -> None:
     datamodule = MusicDataModule(
         batch_size=batch_size,
         data_dir=Path(to_absolute_path(Path(*cfg.data.data_dir))),
-        text_dir=Path(to_absolute_path(Path(*cfg.data.text_dir))),
+        filename_list=Path(to_absolute_path(Path(*cfg.data.filename_list))),
         process_dir=Path(to_absolute_path(Path(*cfg.data.process_dir))),
         num_workers=cfg.train.num_workers,
         data_len=cfg.model.data_len,

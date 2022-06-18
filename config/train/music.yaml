@@ -2,13 +2,13 @@ acc: 1
 auto_lr: True
 auto_batch: False
 batch_size: 8
-checkpoint: True
-early_stopping: True
+checkpoint_dir: ["checkpoint"]
+early_stop: True
 effective_batch_size: -1
 fast_dev_run: False
 gpus: -1
 limit_batches: 1.0
 lr: 0.0001
-max_time: ""
+max_time: -1
 monitor: False
 num_workers: 12

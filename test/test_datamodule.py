@@ -33,7 +33,7 @@ class TestDataModule(unittest.TestCase):
             self.module = MusicDataModule(
                 batch_size=cfg.train.batch_size,
                 data_dir=Path(*cfg.data.data_dir),
-                text_dir=Path(*cfg.data.text_dir),
+                filename_list=Path(*cfg.data.filename_list),
                 process_dir=Path(*cfg.data.process_dir),
                 num_workers=cfg.train.num_workers,
                 data_len=cfg.model.data_len,

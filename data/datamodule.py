@@ -89,13 +89,13 @@ class MusicDataModule(LightningDataModule):
     Args:
         batch_size: Batch size (required).
         data_dir: Directory of MIDI files (required).
-        text_dir: Directory of `midi.txt` (required).
+        filename_list: Directory of `midi.txt` (required).
         process_dir: Directory of preprocessed files (required).
         num_workers: Number of workers to use for multiprocessing (required).
         data_len: Length of data (required).
         augment: Whether to augment data (required).
         modifier: Modifier instance (required)."""
-    def __init__(self, batch_size: int, data_dir: Path, text_dir: Path,
+    def __init__(self, batch_size: int, data_dir: Path, filename_list: Path,
                  process_dir: Path, num_workers: int, data_len: int,
                  augment: bool, modifier: Modifier):
         super().__init__()
@@ -103,7 +103,7 @@ class MusicDataModule(LightningDataModule):
         self.rng = np.random.default_rng()
         self.num_workers = num_workers
         self.data_dir = data_dir
-        self.text_dir = text_dir
+        self.filename_list = filename_list
         self.process_dir = process_dir
         self.data_len = data_len
         self.augment = augment
@@ -113,10 +113,10 @@ class MusicDataModule(LightningDataModule):
         self.test_dataset: Optional[Dataset] = None
 
     def prepare_data(self) -> None:
-        process_tokens(self.data_dir, self.text_dir, self.process_dir)
+        process_tokens(self.data_dir, self.filename_list, self.process_dir)
 
     def setup(self, stage: Optional[str] = None) -> None:
-        file_path = to_absolute_path(self.text_dir / "midi.txt")
+        file_path = to_absolute_path(self.filename_list)
         with open(file_path, mode="r", encoding="utf-8") as file:
             path_list = file.readlines()
         self.rng.shuffle(path_list)
@@ -127,7 +127,7 @@ class MusicDataModule(LightningDataModule):
 
         if stage == "fit" or stage == "validate" or stage is None:
             full_dataset = MusicDataset(data_len=self.data_len,
-                                        augment=self.augment,
+                                        augment=stage == "fit" or self.augment,
                                         path_list=full_path_list,
                                         process_dir=self.process_dir,
                                         modifier=self.modifier)
@@ -135,7 +135,7 @@ class MusicDataModule(LightningDataModule):
                 full_dataset, [train_len, val_len])
         if stage == "test" or stage == "predict" or stage is None:
             self.test_dataset = MusicDataset(data_len=self.data_len,
-                                             augment=self.augment,
+                                             augment=False,
                                              path_list=test_path_list,
                                              process_dir=self.process_dir,
                                              modifier=self.modifier)

@@ -1,5 +1,5 @@
 data_dir: ["data", "midi"]
-text_dir: ["data"]
+filename_list: ["data", "midi.txt"]
 num_special: 3
 num_program: 129
 num_note: 128
@@ -9,5 +9,5 @@ num_time_den: 256
 process_dir: ["data", "process"]
 augment: False
 note_shift: 3
-velocity_scale: 2
-time_scale: 25
+velocity_scale: 2.
+time_scale: 25.

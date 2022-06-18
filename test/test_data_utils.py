@@ -20,12 +20,12 @@ class TestDataUtils(unittest.TestCase):
                           overrides=["model=music", "data=music"])
         self.cfg = cfg
         data_dir = Path(*cfg.data.data_dir)
-        text_dir = Path(*cfg.data.text_dir)
+        filename_list = Path(*cfg.data.filename_list)
         process_dir = Path(*cfg.data.process_dir)
         process_tokens(data_dir=data_dir,
-                       text_dir=text_dir,
+                       filename_list=filename_list,
                        process_dir=process_dir)
-        file_path = to_absolute_path(text_dir.joinpath("midi.txt"))
+        file_path = to_absolute_path(filename_list.joinpath("midi.txt"))
         with open(file_path, mode="r", encoding="utf-8") as file:
             self.path_list = file.readlines()
         self.num_special = cfg.data.num_special
