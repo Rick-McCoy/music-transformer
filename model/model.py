@@ -8,20 +8,31 @@ from model.transformer import Transformer
 
 
 class MusicModel(LightningModule):
-    def __init__(self, d_model: int, data_len: int, dropout: float, ff: int,
-                 lr: float, nhead: int, num_layers: int, num_token: int,
-                 segments: int) -> None:
+    def __init__(
+        self,
+        d_model: int,
+        data_len: int,
+        dropout: float,
+        ff: int,
+        lr: float,
+        nhead: int,
+        num_layers: int,
+        num_token: int,
+        segments: int,
+    ) -> None:
         super().__init__()
         self.save_hyperparameters()
         self.learning_rate = lr
-        self.transformer = Transformer(d_model=d_model,
-                                       data_len=data_len,
-                                       dropout=dropout,
-                                       ff=ff,
-                                       nhead=nhead,
-                                       num_layers=num_layers,
-                                       num_token=num_token,
-                                       segments=segments)
+        self.transformer = Transformer(
+            d_model=d_model,
+            data_len=data_len,
+            dropout=dropout,
+            ff=ff,
+            nhead=nhead,
+            num_layers=num_layers,
+            num_token=num_token,
+            segments=segments,
+        )
         self.loss = SimpleLoss()
         self.acc = Accuracy(top_k=1, ignore_index=0)
         self.example_input_array = torch.zeros(1, data_len, dtype=torch.int64)
@@ -57,6 +68,6 @@ class MusicModel(LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(params=self.parameters(),
-                                lr=self.learning_rate,
-                                amsgrad=True)
+        return torch.optim.Adam(
+            params=self.parameters(), lr=self.learning_rate, amsgrad=True
+        )

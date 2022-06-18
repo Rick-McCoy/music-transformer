@@ -73,15 +73,17 @@ class MessageType(IntEnum):
 
 
 class Event:
-    def __init__(self,
-                 message_type: Optional[MessageType],
-                 tick: int,
-                 program: int,
-                 note: Optional[int] = None,
-                 velocity: Optional[int] = None,
-                 control: Optional[int] = None,
-                 value: Optional[int] = None,
-                 pitch: Optional[int] = None):
+    def __init__(
+        self,
+        message_type: Optional[MessageType],
+        tick: int,
+        program: int,
+        note: Optional[int] = None,
+        velocity: Optional[int] = None,
+        control: Optional[int] = None,
+        value: Optional[int] = None,
+        pitch: Optional[int] = None,
+    ):
         self.type = message_type
         self.tick = tick
         self.program = program
@@ -197,10 +199,13 @@ class Tokenizer:
             if token < self.program_limit:
                 program = token - self.special_limit
                 event_list.append(
-                    Event(message_type=None, tick=prev_tick, program=program))
+                    Event(message_type=None, tick=prev_tick, program=program)
+                )
             elif token < self.note_limit:
                 note = token - self.program_limit
-                message_type = MessageType.NOTE_ON if note < 128 else MessageType.NOTE_OFF
+                message_type = (
+                    MessageType.NOTE_ON if note < 128 else MessageType.NOTE_OFF
+                )
                 if event_list:
                     event_list[-1].type = message_type
                     event_list[-1].note = note % 128
@@ -251,8 +256,7 @@ def prepare_data(cfg: DictConfig) -> None:
         for path in tqdm(glob.iglob(str(data_path), recursive=True)):
             relative_path = Path(path).relative_to(data_dir)
             try:
-                filename = process_dir.joinpath(
-                    relative_path.with_suffix(".npy"))
+                filename = process_dir.joinpath(relative_path.with_suffix(".npy"))
                 os.makedirs(filename.parent, exist_ok=True)
                 midi_list = read_midi(MidiFile(filename=path, clip=True))
                 tokens = tokenizer.tokenize(midi_list)
@@ -284,35 +288,54 @@ def read_midi(midi_file: MidiFile) -> List[Event]:
     for tick, message in messages:
         if message.type == "note_on" and message.velocity > 0:
             events.append(
-                Event(MessageType.NOTE_ON,
-                      tick,
-                      programs[message.channel],
-                      note=message.note,
-                      velocity=message.velocity))
-        elif message.type == "note_off" or message.type == "note_on" and message.velocity == 0:
+                Event(
+                    MessageType.NOTE_ON,
+                    tick,
+                    programs[message.channel],
+                    note=message.note,
+                    velocity=message.velocity,
+                )
+            )
+        elif (
+            message.type == "note_off"
+            or message.type == "note_on"
+            and message.velocity == 0
+        ):
             events.append(
-                Event(MessageType.NOTE_OFF,
-                      tick,
-                      programs[message.channel],
-                      note=message.note))
+                Event(
+                    MessageType.NOTE_OFF,
+                    tick,
+                    programs[message.channel],
+                    note=message.note,
+                )
+            )
         elif message.type == "program_change" and message.channel != 9:
             programs[message.channel] = message.program
         elif message.type == "control_change":
             events.append(
-                Event(MessageType.CONTROL_CHANGE,
-                      tick,
-                      programs[message.channel],
-                      control=message.control,
-                      value=message.value))
+                Event(
+                    MessageType.CONTROL_CHANGE,
+                    tick,
+                    programs[message.channel],
+                    control=message.control,
+                    value=message.value,
+                )
+            )
         elif message.type == "pitchwheel":
             events.append(
-                Event(MessageType.PITCHWHEEL,
-                      tick,
-                      programs[message.channel],
-                      pitch=message.pitch))
+                Event(
+                    MessageType.PITCHWHEEL,
+                    tick,
+                    programs[message.channel],
+                    pitch=message.pitch,
+                )
+            )
 
-    events.sort(key=attrgetter("tick", "program", "type", "note", "velocity",
-                               "control", "value", "pitch"))
+    events.sort(
+        key=attrgetter(
+            "tick", "program", "type", "note", "velocity", "control", "value", "pitch"
+        )
+    )
 
     return events
 
@@ -337,10 +360,8 @@ def write_midi(event_list: List[Event]) -> MidiFile:
     for track in midi_file.tracks:
         for program, channel in program_map.items():
             track.append(
-                Message("program_change",
-                        channel=channel,
-                        program=program,
-                        time=0))
+                Message("program_change", channel=channel, program=program, time=0)
+            )
 
     program_map[128] = 9
 
@@ -349,30 +370,42 @@ def write_midi(event_list: List[Event]) -> MidiFile:
             channel = program_map[event.program]
             if event.type == MessageType.NOTE_OFF:
                 track.append(
-                    Message("note_off",
-                            channel=channel,
-                            note=event.note,
-                            time=event.tick - prev_tick))
+                    Message(
+                        "note_off",
+                        channel=channel,
+                        note=event.note,
+                        time=event.tick - prev_tick,
+                    )
+                )
             elif event.type == MessageType.NOTE_ON:
                 track.append(
-                    Message("note_on",
-                            channel=channel,
-                            note=event.note,
-                            velocity=event.velocity,
-                            time=event.tick - prev_tick))
+                    Message(
+                        "note_on",
+                        channel=channel,
+                        note=event.note,
+                        velocity=event.velocity,
+                        time=event.tick - prev_tick,
+                    )
+                )
             elif event.type == MessageType.CONTROL_CHANGE:
                 track.append(
-                    Message("control_change",
-                            channel=channel,
-                            control=event.control,
-                            value=event.value,
-                            time=event.tick - prev_tick))
+                    Message(
+                        "control_change",
+                        channel=channel,
+                        control=event.control,
+                        value=event.value,
+                        time=event.tick - prev_tick,
+                    )
+                )
             elif event.type == MessageType.PITCHWHEEL:
                 track.append(
-                    Message("pitchwheel",
-                            channel=channel,
-                            pitch=event.pitch,
-                            time=event.tick - prev_tick))
+                    Message(
+                        "pitchwheel",
+                        channel=channel,
+                        pitch=event.pitch,
+                        time=event.tick - prev_tick,
+                    )
+                )
             else:
                 raise InvalidTypeError
             prev_tick = event.tick

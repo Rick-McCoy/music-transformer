@@ -14,8 +14,7 @@ from data.utils import prepare_data
 
 
 class MusicDataset(Dataset):
-    def __init__(self, cfg: DictConfig, path_list: List[str],
-                 process_dir: str) -> None:
+    def __init__(self, cfg: DictConfig, path_list: List[str], process_dir: str) -> None:
         super().__init__()
         self.cfg = cfg
         self.length = cfg.model.data_len + 1
@@ -23,16 +22,15 @@ class MusicDataset(Dataset):
         self.process_dir = process_dir
 
     def __getitem__(self, index: int) -> ndarray:
-        path = Path(self.process_dir,
-                    self.path_list[index]).with_suffix(".npy")
+        path = Path(self.process_dir, self.path_list[index]).with_suffix(".npy")
         data = np.load(path).astype(np.int64)
         orig_len = data.shape[0]
         if self.length > orig_len:
-            return np.pad(data, (0, self.length - orig_len),
-                          mode="constant",
-                          constant_values=0)
+            return np.pad(
+                data, (0, self.length - orig_len), mode="constant", constant_values=0
+            )
         random_index = random.randint(0, orig_len - self.length)
-        return data[random_index:random_index + self.length]
+        return data[random_index : random_index + self.length]
 
     def __len__(self):
         return len(self.path_list)
@@ -63,28 +61,34 @@ class MusicDataModule(LightningDataModule):
         if stage == "fit" or stage == "validate" or stage is None:
             full_dataset = MusicDataset(self.cfg, full_path_list, process_dir)
             self.train_dataset, self.val_dataset = random_split(
-                full_dataset, [train_len, val_len])
+                full_dataset, [train_len, val_len]
+            )
         if stage == "test" or stage == "predict" or stage is None:
-            self.test_dataset = MusicDataset(self.cfg, test_path_list,
-                                             process_dir)
+            self.test_dataset = MusicDataset(self.cfg, test_path_list, process_dir)
 
     def train_dataloader(self) -> DataLoader:
-        return DataLoader(self.train_dataset,
-                          batch_size=self.batch_size,
-                          shuffle=True,
-                          num_workers=self.cfg.train.num_workers,
-                          pin_memory=True)
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.cfg.train.num_workers,
+            pin_memory=True,
+        )
 
     def val_dataloader(self) -> DataLoader:
-        return DataLoader(self.val_dataset,
-                          batch_size=self.batch_size,
-                          shuffle=False,
-                          num_workers=self.cfg.train.num_workers,
-                          pin_memory=True)
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.cfg.train.num_workers,
+            pin_memory=True,
+        )
 
     def test_dataloader(self) -> DataLoader:
-        return DataLoader(self.test_dataset,
-                          batch_size=self.batch_size,
-                          shuffle=False,
-                          num_workers=self.cfg.train.num_workers,
-                          pin_memory=True)
+        return DataLoader(
+            self.test_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.cfg.train.num_workers,
+            pin_memory=True,
+        )

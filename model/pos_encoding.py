@@ -20,18 +20,19 @@ class PositionalEncoding(nn.Module):
     Examples:
         >>> pos_encoder = PositionalEncoding(d_model)
     """
+
     def __init__(self, d_model: int, data_len: int, dropout: float):
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
-        position = torch.arange(0, data_len,
-                                dtype=torch.float).reshape(1, -1, 1)
+        position = torch.arange(0, data_len, dtype=torch.float).reshape(1, -1, 1)
         div_term = torch.exp(
-            torch.arange(0, d_model, 2, dtype=torch.float32) *
-            (-math.log(10000.0) / d_model))
+            torch.arange(0, d_model, 2, dtype=torch.float32)
+            * (-math.log(10000.0) / d_model)
+        )
         term = position * div_term
-        positional_encoding = torch.flatten(torch.stack(
-            [torch.sin(term), torch.cos(term)], dim=-1),
-                                            start_dim=-2)
+        positional_encoding = torch.flatten(
+            torch.stack([torch.sin(term), torch.cos(term)], dim=-1), start_dim=-2
+        )
         self.register_buffer("positional_encoding", positional_encoding)
         self.positional_encoding: Tensor
 

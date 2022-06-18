@@ -1,8 +1,11 @@
 import hydra
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
-from pytorch_lightning.callbacks import (DeviceStatsMonitor, EarlyStopping,
-                                         ModelCheckpoint)
+from pytorch_lightning.callbacks import (
+    DeviceStatsMonitor,
+    EarlyStopping,
+    ModelCheckpoint,
+)
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.trainer import Trainer
 
@@ -17,15 +20,17 @@ def main(cfg: DictConfig = None) -> None:
 
     batch_size = cfg.train.batch_size
     if cfg.train.auto_batch:
-        batch_model = MusicModel(d_model=cfg.model.d_model,
-                                 data_len=cfg.model.data_len,
-                                 dropout=cfg.model.dropout,
-                                 ff=cfg.model.ff,
-                                 lr=cfg.train.lr,
-                                 nhead=cfg.model.nhead,
-                                 num_layers=cfg.model.num_layers,
-                                 num_token=cfg.model.num_token,
-                                 segments=cfg.model.segments)
+        batch_model = MusicModel(
+            d_model=cfg.model.d_model,
+            data_len=cfg.model.data_len,
+            dropout=cfg.model.dropout,
+            ff=cfg.model.ff,
+            lr=cfg.train.lr,
+            nhead=cfg.model.nhead,
+            num_layers=cfg.model.num_layers,
+            num_token=cfg.model.num_token,
+            segments=cfg.model.segments,
+        )
         batch_trainer = Trainer(
             accelerator="auto",
             accumulate_grad_batches=2,
@@ -35,7 +40,8 @@ def main(cfg: DictConfig = None) -> None:
         )
         try:
             batch_size = batch_trainer.tuner.scale_batch_size(
-                model=batch_model, datamodule=datamodule)
+                model=batch_model, datamodule=datamodule
+            )
             datamodule.batch_size = batch_size
         except RuntimeError:
             return
@@ -48,15 +54,17 @@ def main(cfg: DictConfig = None) -> None:
         accumulate = cfg.train.acc
 
     if cfg.train.auto_lr:
-        lr_model = MusicModel(d_model=cfg.model.d_model,
-                              data_len=cfg.model.data_len,
-                              dropout=cfg.model.dropout,
-                              ff=cfg.model.ff,
-                              lr=cfg.train.lr,
-                              nhead=cfg.model.nhead,
-                              num_layers=cfg.model.num_layers,
-                              num_token=cfg.model.num_token,
-                              segments=cfg.model.segments)
+        lr_model = MusicModel(
+            d_model=cfg.model.d_model,
+            data_len=cfg.model.data_len,
+            dropout=cfg.model.dropout,
+            ff=cfg.model.ff,
+            lr=cfg.train.lr,
+            nhead=cfg.model.nhead,
+            num_layers=cfg.model.num_layers,
+            num_token=cfg.model.num_token,
+            segments=cfg.model.segments,
+        )
         lr_trainer = Trainer(
             accelerator="auto",
             accumulate_grad_batches=accumulate,
@@ -64,23 +72,25 @@ def main(cfg: DictConfig = None) -> None:
             devices=devices,
             precision=16,
         )
-        lr_finder = lr_trainer.tuner.lr_find(model=lr_model,
-                                             datamodule=datamodule,
-                                             max_lr=0.01)
+        lr_finder = lr_trainer.tuner.lr_find(
+            model=lr_model, datamodule=datamodule, max_lr=0.01
+        )
         learning_rate = lr_finder.suggestion()
         del lr_model, lr_trainer
     else:
         learning_rate = cfg.train.lr
 
-    model = MusicModel(d_model=cfg.model.d_model,
-                       data_len=cfg.model.data_len,
-                       dropout=cfg.model.dropout,
-                       ff=cfg.model.ff,
-                       lr=learning_rate,
-                       nhead=cfg.model.nhead,
-                       num_layers=cfg.model.num_layers,
-                       num_token=cfg.model.num_token,
-                       segments=cfg.model.segments)
+    model = MusicModel(
+        d_model=cfg.model.d_model,
+        data_len=cfg.model.data_len,
+        dropout=cfg.model.dropout,
+        ff=cfg.model.ff,
+        lr=learning_rate,
+        nhead=cfg.model.nhead,
+        num_layers=cfg.model.num_layers,
+        num_token=cfg.model.num_token,
+        segments=cfg.model.segments,
+    )
     callbacks = []
     if cfg.train.checkpoint:
         callbacks.append(
@@ -92,7 +102,8 @@ def main(cfg: DictConfig = None) -> None:
                 mode="min",
                 auto_insert_metric_name=False,
                 save_weights_only=True,
-            ))
+            )
+        )
     if cfg.train.monitor:
         callbacks.append(DeviceStatsMonitor())
     if cfg.train.early_stopping:

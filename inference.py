@@ -55,8 +55,7 @@ def main(cfg: DictConfig = None) -> None:
         checkpoint_dir = to_absolute_path("checkpoints")
         best_checkpoint = find_best_checkpoint(checkpoint_dir)
         print(f"Loading checkpoint {best_checkpoint}")
-        model = MusicModel.load_from_checkpoint(
-            find_best_checkpoint(checkpoint_dir))
+        model = MusicModel.load_from_checkpoint(find_best_checkpoint(checkpoint_dir))
     elif cfg.checkpoint_path:
         print(f"Loading checkpoint {cfg.checkpoint_path}")
         model = MusicModel.load_from_checkpoint(cfg.checkpoint_path)
