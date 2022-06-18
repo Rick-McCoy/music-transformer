@@ -1,13 +1,14 @@
-from pathlib import Path
 import random
 import unittest
+from pathlib import Path
 
-from hydra import initialize, compose
+import numpy as np
+from hydra import compose, initialize
 from hydra.utils import to_absolute_path
 from mido.midifiles.midifiles import MidiFile
-import numpy as np
 
-from data.utils import MessageType, Event, Tokenizer, read_midi, prepare_data, write_midi
+from data.utils import (Event, MessageType, Tokenizer, prepare_data, read_midi,
+                        write_midi)
 
 
 class TestDataUtils(unittest.TestCase):

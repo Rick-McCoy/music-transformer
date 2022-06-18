@@ -1,7 +1,8 @@
 import hydra
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
-from pytorch_lightning.callbacks import DeviceStatsMonitor, EarlyStopping, ModelCheckpoint
+from pytorch_lightning.callbacks import (DeviceStatsMonitor, EarlyStopping,
+                                         ModelCheckpoint)
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.trainer import Trainer
 

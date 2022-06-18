@@ -1,8 +1,8 @@
 import unittest
 
-from hydra import initialize, compose
 import numpy as np
 import torch
+from hydra import compose, initialize
 
 from model.loss import SimpleLoss
 

@@ -1,6 +1,6 @@
 import unittest
 
-from hydra import initialize, compose
+from hydra import compose, initialize
 
 from main import main
 

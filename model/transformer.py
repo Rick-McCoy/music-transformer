@@ -1,5 +1,6 @@
 from typing import Tuple
-from torch import nn, Tensor
+
+from torch import Tensor, nn
 from torch.utils.checkpoint import checkpoint_sequential
 
 from model.embedding import Embedding

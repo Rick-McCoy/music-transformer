@@ -1,7 +1,7 @@
 import unittest
 
-from hydra import initialize, compose
 import torch
+from hydra import compose, initialize
 
 from model.pos_encoding import PositionalEncoding
 

@@ -1,9 +1,9 @@
 import argparse
 import math
 
-from hydra import initialize, compose
-import wandb
+from hydra import compose, initialize
 
+import wandb
 from main import main
 
 if __name__ == "__main__":

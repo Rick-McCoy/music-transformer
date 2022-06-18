@@ -1,15 +1,15 @@
-from enum import IntEnum
 import glob
-from operator import attrgetter, itemgetter
 import os
+from enum import IntEnum
+from operator import attrgetter, itemgetter
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+import numpy as np
 from hydra.utils import to_absolute_path
 from mido import MidiFile
 from mido.messages.messages import Message
 from mido.midifiles.meta import KeySignatureError
-import numpy as np
 from numpy import ndarray
 from omegaconf.dictconfig import DictConfig
 from tqdm import tqdm

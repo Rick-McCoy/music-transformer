@@ -2,11 +2,11 @@ import os
 from pathlib import Path
 
 import hydra
+import torch
+import torch.nn.functional as F
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
-import torch
 from torch import Tensor
-import torch.nn.functional as F
 from tqdm import tqdm
 
 from data.datamodule import MusicDataModule
