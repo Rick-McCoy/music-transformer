@@ -5,14 +5,14 @@ from torch import Tensor, nn
 
 
 class PositionalEncoding(nn.Module):
-    r"""Inject some information about the relative or absolute position of the tokens
+    """Inject some information about the relative or absolute position of the tokens
         in the sequence. The positional encodings have the same dimension as
         the embeddings, so that the two can be summed. Here, we use sine and cosine
         functions of different frequencies.
     .. math::
-        \text{PosEncoder}(pos, 2i) = sin(pos/10000^(2i/d_model))
-        \text{PosEncoder}(pos, 2i+1) = cos(pos/10000^(2i/d_model))
-        \text{where pos is the word position and i is the embed idx)
+        \\text{PosEncoder}(pos, 2i) = sin(pos/10000^(2i/d_model))
+        \\text{PosEncoder}(pos, 2i+1) = cos(pos/10000^(2i/d_model))
+        \\text{where pos is the word position and i is the embed idx)
     Args:
         d_model: the embed dim (required).
         dropout: the dropout value (default=0.1).
@@ -33,8 +33,8 @@ class PositionalEncoding(nn.Module):
         positional_encoding = torch.flatten(
             torch.stack([torch.sin(term), torch.cos(term)], dim=-1), start_dim=-2
         )
+        self.positional_encoding: Tensor = None
         self.register_buffer("positional_encoding", positional_encoding)
-        self.positional_encoding: Tensor
 
     def forward(self, embedding: Tensor):
         r"""Inputs of forward function

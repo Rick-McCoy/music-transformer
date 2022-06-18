@@ -1,4 +1,3 @@
-import glob
 import os
 from enum import IntEnum
 from operator import attrgetter, itemgetter
@@ -6,13 +5,13 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import numpy as np
-from hydra.utils import to_absolute_path
 from mido import MidiFile
 from mido.messages.messages import Message
 from mido.midifiles.meta import KeySignatureError
 from numpy import ndarray
-from omegaconf.dictconfig import DictConfig
 from tqdm import tqdm
+
+from config.config import CustomConfig
 
 
 class InvalidProgramError(Exception):
@@ -95,19 +94,19 @@ class Event:
 
 
 class Tokenizer:
-    def __init__(self, cfg: DictConfig) -> None:
+    def __init__(self, cfg: CustomConfig) -> None:
         self.pad = 0
         self.begin = 1
         self.end = 2
-        self.num_program = cfg.model.num_program
-        self.num_note = cfg.model.num_note
-        self.num_velocity = cfg.model.num_velocity
-        self.num_control = cfg.model.num_control
-        self.num_value = cfg.model.num_value
-        self.num_pitch_1 = cfg.model.num_pitch_1
-        self.num_pitch_2 = cfg.model.num_pitch_2
-        self.num_tick = cfg.model.num_tick
-        self.special_limit = cfg.model.num_special
+        self.num_program = cfg.num_program
+        self.num_note = cfg.num_note
+        self.num_velocity = cfg.num_velocity
+        self.num_control = cfg.num_control
+        self.num_value = cfg.num_value
+        self.num_pitch_1 = cfg.num_pitch_1
+        self.num_pitch_2 = cfg.num_pitch_2
+        self.num_tick = cfg.num_tick
+        self.special_limit = cfg.num_special
         self.program_limit = self.special_limit + self.num_program
         self.note_limit = self.program_limit + self.num_note
         self.velocity_limit = self.note_limit + self.num_velocity
@@ -243,20 +242,17 @@ class Tokenizer:
         return event_list
 
 
-def prepare_data(cfg: DictConfig) -> None:
-    data_dir = Path(to_absolute_path(Path(*cfg.data.data_dir)))
-    file_dir = Path(to_absolute_path(Path(*cfg.data.file_dir)))
-    process_dir = Path(to_absolute_path(Path(*cfg.data.process_dir)))
-    text_path = file_dir.joinpath("midi.txt")
-    data_path = data_dir.joinpath("**", "*.mid")
-    if not os.path.isdir(process_dir):
-        os.makedirs(process_dir)
+def prepare_data(cfg: CustomConfig) -> None:
+    text_path = cfg.file_dir / "midi.txt"
+    if not os.path.isdir(cfg.process_dir):
+        os.makedirs(cfg.process_dir)
         filenames = []
         tokenizer = Tokenizer(cfg)
-        for path in tqdm(glob.iglob(str(data_path), recursive=True)):
-            relative_path = Path(path).relative_to(data_dir)
+        for path in tqdm(cfg.data_dir.glob("**/*.mid")):
+            path: Path
+            relative_path = path.relative_to(cfg.data_dir)
             try:
-                filename = process_dir.joinpath(relative_path.with_suffix(".npy"))
+                filename = cfg.process_dir / relative_path.with_suffix(".npy")
                 os.makedirs(filename.parent, exist_ok=True)
                 midi_list = read_midi(MidiFile(filename=path, clip=True))
                 tokens = tokenizer.tokenize(midi_list)

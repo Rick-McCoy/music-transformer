@@ -1,9 +1,9 @@
 acc: 1
-auto_lr: True
 auto_batch: False
+auto_lr: True
 batch_size: 8
 checkpoint: True
-early_stopping: True
+early_stop: True
 effective_batch_size: -1
 fast_dev_run: False
 gpus: -1

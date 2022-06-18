@@ -1,3 +1,7 @@
+"""
+    The main file of the project.
+    This file initializes the model and data, and then runs the training.
+"""
 import hydra
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
@@ -9,28 +13,26 @@ from pytorch_lightning.callbacks import (
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.trainer import Trainer
 
+from config.config import CustomConfig
 from data.datamodule import MusicDataModule
 from model.model import MusicModel
 
 
 @hydra.main(config_path="config", config_name="config")
 def main(cfg: DictConfig = None) -> None:
-    datamodule = MusicDataModule(cfg)
-    devices = "auto" if cfg.train.gpus == -1 else cfg.train.gpus
+    """
+        The main function.
+        To run in another file, initialize a hydra config and call main(cfg).
+    """
 
-    batch_size = cfg.train.batch_size
-    if cfg.train.auto_batch:
-        batch_model = MusicModel(
-            d_model=cfg.model.d_model,
-            data_len=cfg.model.data_len,
-            dropout=cfg.model.dropout,
-            ff=cfg.model.ff,
-            lr=cfg.train.lr,
-            nhead=cfg.model.nhead,
-            num_layers=cfg.model.num_layers,
-            num_token=cfg.model.num_token,
-            segments=cfg.model.segments,
-        )
+    # Initialize CustomConfig
+    custom_cfg = CustomConfig(cfg)
+    datamodule = MusicDataModule(cfg)
+    devices = "auto" if custom_cfg.gpus == -1 else custom_cfg.gpus
+
+    batch_size = custom_cfg.batch_size
+    if custom_cfg.auto_batch:
+        batch_model = MusicModel(custom_cfg)
         batch_trainer = Trainer(
             accelerator="auto",
             accumulate_grad_batches=2,
@@ -47,24 +49,14 @@ def main(cfg: DictConfig = None) -> None:
             return
         del batch_model, batch_trainer
 
-    if cfg.train.effective_batch_size > 0:
-        accumulate = cfg.train.effective_batch_size // batch_size
+    if custom_cfg.effective_batch_size > 0:
+        accumulate = custom_cfg.effective_batch_size // batch_size
         accumulate = max(accumulate, 1)
     else:
-        accumulate = cfg.train.acc
+        accumulate = custom_cfg.acc
 
-    if cfg.train.auto_lr:
-        lr_model = MusicModel(
-            d_model=cfg.model.d_model,
-            data_len=cfg.model.data_len,
-            dropout=cfg.model.dropout,
-            ff=cfg.model.ff,
-            lr=cfg.train.lr,
-            nhead=cfg.model.nhead,
-            num_layers=cfg.model.num_layers,
-            num_token=cfg.model.num_token,
-            segments=cfg.model.segments,
-        )
+    if custom_cfg.auto_lr:
+        lr_model = MusicModel(custom_cfg)
         lr_trainer = Trainer(
             accelerator="auto",
             accumulate_grad_batches=accumulate,
@@ -75,24 +67,12 @@ def main(cfg: DictConfig = None) -> None:
         lr_finder = lr_trainer.tuner.lr_find(
             model=lr_model, datamodule=datamodule, max_lr=0.01
         )
-        learning_rate = lr_finder.suggestion()
+        custom_cfg.learning_rate = lr_finder.suggestion()
         del lr_model, lr_trainer
-    else:
-        learning_rate = cfg.train.lr
 
-    model = MusicModel(
-        d_model=cfg.model.d_model,
-        data_len=cfg.model.data_len,
-        dropout=cfg.model.dropout,
-        ff=cfg.model.ff,
-        lr=learning_rate,
-        nhead=cfg.model.nhead,
-        num_layers=cfg.model.num_layers,
-        num_token=cfg.model.num_token,
-        segments=cfg.model.segments,
-    )
+    model = MusicModel(custom_cfg)
     callbacks = []
-    if cfg.train.checkpoint:
+    if custom_cfg.checkpoint:
         callbacks.append(
             ModelCheckpoint(
                 dirpath=to_absolute_path("checkpoints"),
@@ -104,22 +84,22 @@ def main(cfg: DictConfig = None) -> None:
                 save_weights_only=True,
             )
         )
-    if cfg.train.monitor:
+    if custom_cfg.monitor:
         callbacks.append(DeviceStatsMonitor())
-    if cfg.train.early_stopping:
+    if custom_cfg.early_stop:
         callbacks.append(EarlyStopping(monitor="val/loss", mode="min"))
     logger = WandbLogger(project="music-model", save_dir=to_absolute_path("."))
-    max_time = None if cfg.train.max_time == "" else cfg.train.max_time
+    max_time = None if custom_cfg.max_time == "" else custom_cfg.max_time
     trainer = Trainer(
         accelerator="auto",
         accumulate_grad_batches=accumulate,
         callbacks=callbacks,
         detect_anomaly=True,
         devices=devices,
-        fast_dev_run=cfg.train.fast_dev_run,
-        limit_train_batches=cfg.train.limit_batches,
-        limit_val_batches=cfg.train.limit_batches,
-        limit_test_batches=cfg.train.limit_batches,
+        fast_dev_run=custom_cfg.fast_dev_run,
+        limit_train_batches=custom_cfg.limit_batches,
+        limit_val_batches=custom_cfg.limit_batches,
+        limit_test_batches=custom_cfg.limit_batches,
         log_every_n_steps=1,
         logger=[logger],
         max_time=max_time,

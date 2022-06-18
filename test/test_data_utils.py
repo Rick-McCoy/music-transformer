@@ -1,12 +1,12 @@
 import random
 import unittest
-from pathlib import Path
 
 import numpy as np
 from hydra import compose, initialize
 from hydra.utils import to_absolute_path
 from mido.midifiles.midifiles import MidiFile
 
+from config.config import CustomConfig
 from data.utils import (
     Event,
     MessageType,
@@ -21,10 +21,9 @@ class TestDataUtils(unittest.TestCase):
     def setUp(self) -> None:
         with initialize(config_path="../config"):
             cfg = compose(config_name="config")
-        self.cfg = cfg
-        file_dir = Path(*self.cfg.data.file_dir)
+        self.cfg = CustomConfig(cfg)
         prepare_data(cfg)
-        file_path = to_absolute_path(file_dir.joinpath("midi.txt"))
+        file_path = to_absolute_path(self.cfg.file_dir / "midi.txt")
         with open(file_path, mode="r", encoding="utf-8") as file:
             self.path_list = file.readlines()
         random.shuffle(self.path_list)
@@ -39,7 +38,7 @@ class TestDataUtils(unittest.TestCase):
             MessageType.PITCHWHEEL,
         ]
         for path in self.path_list[:10]:
-            filename = to_absolute_path(Path(*self.cfg.data.data_dir, path.strip()))
+            filename = to_absolute_path(self.cfg.data_dir / path.strip())
             events = read_midi(MidiFile(filename=filename, clip=True))
             prev_tick = 0
             for event in events:
@@ -48,18 +47,18 @@ class TestDataUtils(unittest.TestCase):
                 self.assertGreaterEqual(tick_delta, 0)
                 prev_tick = event.tick
                 self.assertGreaterEqual(event.program, 0)
-                self.assertLess(event.program, self.cfg.model.num_program)
+                self.assertLess(event.program, self.cfg.num_program)
                 if event.type == MessageType.NOTE_ON:
                     self.assertGreaterEqual(event.note, 0)
-                    self.assertLess(event.note, self.cfg.model.num_note)
+                    self.assertLess(event.note, self.cfg.num_note)
                     self.assertGreaterEqual(event.velocity, 0)
-                    self.assertLess(event.velocity, self.cfg.model.num_velocity)
+                    self.assertLess(event.velocity, self.cfg.num_velocity)
                     self.assertIsNone(event.control)
                     self.assertIsNone(event.value)
                     self.assertIsNone(event.pitch)
                 elif event.type == MessageType.NOTE_OFF:
                     self.assertGreaterEqual(event.note, 0)
-                    self.assertLess(event.note, self.cfg.model.num_note)
+                    self.assertLess(event.note, self.cfg.num_note)
                     self.assertIsNone(event.velocity)
                     self.assertIsNone(event.control)
                     self.assertIsNone(event.value)
@@ -68,9 +67,9 @@ class TestDataUtils(unittest.TestCase):
                     self.assertIsNone(event.note)
                     self.assertIsNone(event.velocity)
                     self.assertGreaterEqual(event.control, 0)
-                    self.assertLess(event.control, self.cfg.model.num_control)
+                    self.assertLess(event.control, self.cfg.num_control)
                     self.assertGreaterEqual(event.value, 0)
-                    self.assertLess(event.value, self.cfg.model.num_value)
+                    self.assertLess(event.value, self.cfg.num_value)
                     self.assertIsNone(event.pitch)
                 elif event.type == MessageType.PITCHWHEEL:
                     self.assertIsNone(event.note)
@@ -82,16 +81,16 @@ class TestDataUtils(unittest.TestCase):
 
     def test_tokenize(self):
         self.assertEqual(
-            self.cfg.model.num_special
-            + self.cfg.model.num_program
-            + self.cfg.model.num_note
-            + self.cfg.model.num_velocity
-            + self.cfg.model.num_control
-            + self.cfg.model.num_value
-            + self.cfg.model.num_pitch_1
-            + self.cfg.model.num_pitch_2
-            + self.cfg.model.num_tick,
-            self.cfg.model.num_token,
+            self.cfg.num_special
+            + self.cfg.num_program
+            + self.cfg.num_note
+            + self.cfg.num_velocity
+            + self.cfg.num_control
+            + self.cfg.num_value
+            + self.cfg.num_pitch_1
+            + self.cfg.num_pitch_2
+            + self.cfg.num_tick,
+            self.cfg.num_token,
         )
         event_list = []
         event_list.append(
