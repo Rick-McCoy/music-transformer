@@ -90,7 +90,7 @@ class TestDataUtils(unittest.TestCase):
             + self.cfg.num_pitch_1
             + self.cfg.num_pitch_2
             + self.cfg.num_tick,
-            self.cfg.num_token,
+            self.cfg.num_tokens,
         )
         event_list = []
         event_list.append(
@@ -111,12 +111,8 @@ class TestDataUtils(unittest.TestCase):
                 program=8,
             )
         )
-        event_list.append(
-            Event(message_type=MessageType.NOTE_OFF, tick=10, note=64, program=0)
-        )
-        event_list.append(
-            Event(message_type=MessageType.NOTE_OFF, tick=12, note=48, program=8)
-        )
+        event_list.append(Event(message_type=MessageType.NOTE_OFF, tick=10, note=64, program=0))
+        event_list.append(Event(message_type=MessageType.NOTE_OFF, tick=12, note=48, program=8))
         event_list.append(
             Event(
                 message_type=MessageType.CONTROL_CHANGE,

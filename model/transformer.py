@@ -1,5 +1,3 @@
-from typing import Tuple
-
 from torch import Tensor, nn
 from torch.utils.checkpoint import checkpoint_sequential
 
@@ -8,7 +6,14 @@ from model.pos_encoding import PositionalEncoding
 
 
 class TransformerLayer(nn.Module):
-    def __init__(self, d_model: int, dropout: float, ff: int, nhead: int) -> None:
+    def __init__(
+        self,
+        d_model: int,
+        dropout: float,
+        ff: int,
+        nhead: int,
+        data_len: int,
+    ) -> None:
         super().__init__()
         self.layer = nn.TransformerEncoderLayer(
             d_model=d_model,
@@ -18,10 +23,12 @@ class TransformerLayer(nn.Module):
             batch_first=True,
             norm_first=True,
         )
+        mask = nn.Transformer.generate_square_subsequent_mask(data_len)
+        self.register_buffer("mask", mask)
+        self.mask: Tensor
 
-    def forward(self, batch: Tuple[Tensor, Tensor]):
-        data, mask = batch
-        return self.layer(data, src_mask=mask), mask
+    def forward(self, data: Tensor):
+        return self.layer(data, src_mask=self.mask)
 
 
 class Transformer(nn.Module):
@@ -33,28 +40,45 @@ class Transformer(nn.Module):
         ff: int,
         nhead: int,
         num_layers: int,
-        num_token: int,
+        num_tokens: int,
         segments: int,
     ) -> None:
         super().__init__()
-        self.embedding = Embedding(d_model=d_model, num_token=num_token)
-        self.pos_encoding = PositionalEncoding(d_model=d_model, data_len=data_len, dropout=dropout)
+        self.embedding = Embedding(
+            d_model=d_model,
+            num_tokens=num_tokens,
+        )
+        self.pos_encoding = PositionalEncoding(
+            d_model=d_model,
+            data_len=data_len,
+            dropout=dropout,
+        )
         self.encoder = nn.Sequential(
-            TransformerLayer(d_model=d_model, dropout=dropout, ff=ff, nhead=nhead)
+            TransformerLayer(
+                d_model=d_model,
+                dropout=dropout,
+                ff=ff,
+                nhead=nhead,
+                data_len=data_len,
+            )
             for _ in range(num_layers)
         )
         self.norm = nn.LayerNorm((d_model,))
-        mask = nn.Transformer.generate_square_subsequent_mask(data_len)
-        self.mask: Tensor = None
-        self.register_buffer("mask", mask)
-        self.linear = nn.Linear(in_features=d_model, out_features=num_token)
+        self.linear = nn.Linear(
+            in_features=d_model,
+            out_features=num_tokens,
+        )
         self.segments = segments
 
     def forward(self, data: Tensor) -> Tensor:
         embedded = self.embedding(data)
         encoded = self.pos_encoding(embedded)
-        transformed, _ = checkpoint_sequential(self.encoder, self.segments, (encoded, self.mask))
+        transformed = checkpoint_sequential(
+            self.encoder,
+            self.segments,
+            encoded,
+        )
         normalized = self.norm(transformed)
-        projected = self.linear(normalized)
+        projected: Tensor = self.linear(normalized)
         output = projected.permute([0, -1] + list(range(1, projected.ndim - 1)))
         return output

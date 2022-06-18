@@ -18,9 +18,9 @@ class CustomConfig:
             raise ValueError("Initialize with a hydra config.")
         self.cfg = cfg
 
-        self.data_dir = Path(to_absolute_path(self.cfg.data_dir))
-        self.file_dir = Path(to_absolute_path(self.cfg.file_dir))
-        self.process_dir = Path(to_absolute_path(self.cfg.process_dir))
+        self.data_dir = Path(to_absolute_path(self.cfg.data.data_dir))
+        self.file_dir = Path(to_absolute_path(self.cfg.data.file_dir))
+        self.process_dir = Path(to_absolute_path(self.cfg.data.process_dir))
 
         self.d_model: int = self.cfg.model.d_model
         self.data_len: int = self.cfg.model.data_len
@@ -37,7 +37,7 @@ class CustomConfig:
         self.num_pitch_1: int = self.cfg.model.num_pitch_1
         self.num_pitch_2: int = self.cfg.model.num_pitch_2
         self.num_tick: int = self.cfg.model.num_tick
-        self.num_token: int = self.cfg.model.num_token
+        self.num_tokens: int = self.cfg.model.num_token
         self.segments: int = self.cfg.model.segments
 
         self.acc: int = self.cfg.train.acc

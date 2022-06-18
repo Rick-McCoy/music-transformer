@@ -21,18 +21,28 @@ from model.model import MusicModel
 @hydra.main(config_path="config", config_name="config")
 def main(cfg: DictConfig = None) -> None:
     """
-        The main function.
-        To run in another file, initialize a hydra config and call main(cfg).
+    The main function.
+    To run in another file, initialize a hydra config and call main(cfg).
     """
 
     # Initialize CustomConfig
     custom_cfg = CustomConfig(cfg)
-    datamodule = MusicDataModule(cfg)
+    datamodule = MusicDataModule(custom_cfg)
     devices = "auto" if custom_cfg.gpus == -1 else custom_cfg.gpus
 
     batch_size = custom_cfg.batch_size
     if custom_cfg.auto_batch:
-        batch_model = MusicModel(custom_cfg)
+        batch_model = MusicModel(
+            learning_rate=custom_cfg.learning_rate,
+            data_len=custom_cfg.data_len,
+            d_model=custom_cfg.d_model,
+            dropout=custom_cfg.dropout,
+            feed_forward=custom_cfg.feed_forward,
+            nhead=custom_cfg.nhead,
+            num_layers=custom_cfg.num_layers,
+            num_tokens=custom_cfg.num_tokens,
+            segments=custom_cfg.segments,
+        )
         batch_trainer = Trainer(
             accelerator="auto",
             accumulate_grad_batches=2,
@@ -56,7 +66,17 @@ def main(cfg: DictConfig = None) -> None:
         accumulate = custom_cfg.acc
 
     if custom_cfg.auto_lr:
-        lr_model = MusicModel(custom_cfg)
+        lr_model = MusicModel(
+            learning_rate=custom_cfg.learning_rate,
+            data_len=custom_cfg.data_len,
+            d_model=custom_cfg.d_model,
+            dropout=custom_cfg.dropout,
+            feed_forward=custom_cfg.feed_forward,
+            nhead=custom_cfg.nhead,
+            num_layers=custom_cfg.num_layers,
+            num_tokens=custom_cfg.num_tokens,
+            segments=custom_cfg.segments,
+        )
         lr_trainer = Trainer(
             accelerator="auto",
             accumulate_grad_batches=accumulate,
@@ -64,13 +84,21 @@ def main(cfg: DictConfig = None) -> None:
             devices=devices,
             precision=16,
         )
-        lr_finder = lr_trainer.tuner.lr_find(
-            model=lr_model, datamodule=datamodule, max_lr=0.01
-        )
+        lr_finder = lr_trainer.tuner.lr_find(model=lr_model, datamodule=datamodule, max_lr=0.01)
         custom_cfg.learning_rate = lr_finder.suggestion()
         del lr_model, lr_trainer
 
-    model = MusicModel(custom_cfg)
+    model = MusicModel(
+        learning_rate=custom_cfg.learning_rate,
+        data_len=custom_cfg.data_len,
+        d_model=custom_cfg.d_model,
+        dropout=custom_cfg.dropout,
+        feed_forward=custom_cfg.feed_forward,
+        nhead=custom_cfg.nhead,
+        num_layers=custom_cfg.num_layers,
+        num_tokens=custom_cfg.num_tokens,
+        segments=custom_cfg.segments,
+    )
     callbacks = []
     if custom_cfg.checkpoint:
         callbacks.append(

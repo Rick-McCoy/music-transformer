@@ -1,7 +1,7 @@
 from torch import Tensor, nn
 
 
-class SimpleLoss(nn.Module):
+class CrossEntropy(nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.cross_entropy = nn.CrossEntropyLoss(ignore_index=0)
