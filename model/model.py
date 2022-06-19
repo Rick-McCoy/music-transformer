@@ -45,7 +45,6 @@ class MusicModel(LightningModule):
         )
         self.loss = CrossEntropy()
         self.acc = Accuracy(top_k=1, ignore_index=0, mdmc_average="global")
-        self.auroc = AUROC(num_classes=num_tokens)
         self.example_input_array = torch.zeros(1, data_len, dtype=torch.int64)
         self.is_training = is_training
 

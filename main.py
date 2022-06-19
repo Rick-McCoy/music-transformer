@@ -3,7 +3,6 @@
     This file initializes the model and data, and then runs the training.
 """
 import math
-from pathlib import Path
 
 import hydra
 from omegaconf import DictConfig
@@ -113,11 +112,12 @@ def main(cfg: DictConfig = None) -> None:
         num_tokens=custom_cfg.num_tokens,
         segments=custom_cfg.segments,
     )
+
     callbacks = []
     if custom_cfg.checkpoint:
         callbacks.append(
             ModelCheckpoint(
-                dirpath=Path("checkpoints"),
+                dirpath=custom_cfg.checkpoint_dir,
                 filename="epoch={epoch}-val_loss={val/loss:.3f}",
                 monitor="val/loss",
                 save_top_k=1,
@@ -130,8 +130,11 @@ def main(cfg: DictConfig = None) -> None:
         callbacks.append(DeviceStatsMonitor())
     if custom_cfg.early_stop:
         callbacks.append(EarlyStopping(monitor="val/loss", mode="min"))
-    logger = WandbLogger(project="music-model", save_dir=Path("."))
+
+    custom_cfg.log_dir.mkdir(parents=True, exist_ok=True)
+    logger = WandbLogger(name="music-model", save_dir=str(custom_cfg.log_dir))
     max_time = None if custom_cfg.max_time == "" else custom_cfg.max_time
+
     trainer = Trainer(
         accelerator="auto",
         accumulate_grad_batches=accumulate,

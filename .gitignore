@@ -146,7 +146,7 @@ data/midi
 data/process
 data/*.tar
 data/*.npz
-checkpoints/
+checkpoint/
 onnx/
 temp.py
 wandb/

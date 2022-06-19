@@ -18,8 +18,10 @@ class CustomConfig:
             raise ValueError("Initialize with a hydra config.")
         self.cfg = cfg
 
+        self.checkpoint_dir = Path(self.cfg.data.checkpoint_dir)
         self.data_dir = Path(self.cfg.data.data_dir)
         self.file_dir = Path(self.cfg.data.file_dir)
+        self.log_dir = Path(self.cfg.data.log_dir)
         self.process_dir = Path(self.cfg.data.process_dir)
 
         self.d_model: int = self.cfg.model.d_model

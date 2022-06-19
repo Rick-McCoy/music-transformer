@@ -1,3 +1,5 @@
+checkpoint_dir: "./checkpoint"
 data_dir: "./data/midi"
 file_dir: "./data"
+log_dir: "./logs"
 process_dir: "./data/process"
