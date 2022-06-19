@@ -2,8 +2,10 @@
     The main file of the project.
     This file initializes the model and data, and then runs the training.
 """
+import math
+from pathlib import Path
+
 import hydra
-from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import (
     DeviceStatsMonitor,
@@ -18,7 +20,7 @@ from data.datamodule import MusicDataModule
 from model.model import MusicModel
 
 
-@hydra.main(config_path="config", config_name="config")
+@hydra.main(config_path="config", config_name="config", version_base=None)
 def main(cfg: DictConfig = None) -> None:
     """
     The main function.
@@ -51,8 +53,12 @@ def main(cfg: DictConfig = None) -> None:
             precision=16,
         )
         try:
+            max_trials = round(math.log2(custom_cfg.effective_batch_size / 2))
             batch_size = batch_trainer.tuner.scale_batch_size(
-                model=batch_model, datamodule=datamodule
+                model=batch_model,
+                datamodule=datamodule,
+                steps_per_trial=10,
+                max_trials=max_trials,
             )
             datamodule.batch_size = batch_size
         except RuntimeError:
@@ -61,7 +67,6 @@ def main(cfg: DictConfig = None) -> None:
 
     if custom_cfg.effective_batch_size > 0:
         accumulate = custom_cfg.effective_batch_size // batch_size
-        accumulate = max(accumulate, 1)
     else:
         accumulate = custom_cfg.acc
 
@@ -103,7 +108,7 @@ def main(cfg: DictConfig = None) -> None:
     if custom_cfg.checkpoint:
         callbacks.append(
             ModelCheckpoint(
-                dirpath=to_absolute_path("checkpoints"),
+                dirpath=Path("checkpoints"),
                 filename="epoch={epoch}-val_loss={val/loss:.3f}",
                 monitor="val/loss",
                 save_top_k=1,
@@ -116,7 +121,7 @@ def main(cfg: DictConfig = None) -> None:
         callbacks.append(DeviceStatsMonitor())
     if custom_cfg.early_stop:
         callbacks.append(EarlyStopping(monitor="val/loss", mode="min"))
-    logger = WandbLogger(project="music-model", save_dir=to_absolute_path("."))
+    logger = WandbLogger(project="music-model", save_dir=Path("."))
     max_time = None if custom_cfg.max_time == "" else custom_cfg.max_time
     trainer = Trainer(
         accelerator="auto",

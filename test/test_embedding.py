@@ -10,7 +10,7 @@ from model.embedding import Embedding
 
 class TestEmbedding(unittest.TestCase):
     def setUp(self) -> None:
-        with initialize(config_path="../config"):
+        with initialize(config_path="../config", version_base=None):
             cfg = compose(config_name="config")
             self.cfg = CustomConfig(cfg)
             self.embedding = Embedding(d_model=self.cfg.d_model, num_tokens=self.cfg.num_tokens)

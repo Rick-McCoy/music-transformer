@@ -10,7 +10,7 @@ from model.loss import CrossEntropy
 
 class TestLoss(unittest.TestCase):
     def setUp(self) -> None:
-        with initialize(config_path="../config"):
+        with initialize(config_path="../config", version_base=None):
             cfg = compose(config_name="config")
             self.cfg = CustomConfig(cfg)
             self.loss = CrossEntropy()

@@ -1,10 +1,11 @@
 """
     Defines MusicModel class.
 """
+
 import torch
 from pytorch_lightning import LightningModule
 from torch import Tensor
-from torchmetrics import Accuracy
+from torchmetrics import AUROC, Accuracy
 
 from model.loss import CrossEntropy
 from model.transformer import Transformer
@@ -42,37 +43,44 @@ class MusicModel(LightningModule):
             segments=segments,
         )
         self.loss = CrossEntropy()
-        self.acc = Accuracy(top_k=1, ignore_index=0)
+        self.acc = Accuracy(top_k=1, ignore_index=0, mdmc_average="global")
+        self.auroc = AUROC(num_classes=num_tokens)
         self.example_input_array = torch.zeros(1, data_len, dtype=torch.int64)
 
     def forward(self, data: Tensor) -> Tensor:
         return self.transformer(data)
 
     def on_train_start(self) -> None:
-        self.logger.log_hyperparams(params={"lr": self.hparams.lr})
+        self.logger.log_hyperparams(params={"lr": self.hparams.learning_rate})
 
-    def training_step(self, batch: Tensor) -> Tensor:
+    def training_step(self, batch: Tensor, batch_idx: int) -> Tensor:
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         self.acc(output, batch[:, 1:])
+        self.auroc(output, batch[:, 1:])
         self.log("train/loss", loss)
         self.log("train/acc", self.acc)
+        self.log("train/auroc", self.auroc)
         return loss
 
-    def validation_step(self, batch: Tensor) -> Tensor:
+    def validation_step(self, batch: Tensor, batch_idx: int) -> Tensor:
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         self.acc(output, batch[:, 1:])
+        self.auroc(output, batch[:, 1:])
         self.log("val/loss", loss)
         self.log("val/acc", self.acc)
+        self.log("val/auroc", self.auroc)
         return loss
 
-    def test_step(self, batch: Tensor) -> Tensor:
+    def test_step(self, batch: Tensor, batch_idx: int) -> Tensor:
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         self.acc(output, batch[:, 1:])
+        self.auroc(output, batch[:, 1:])
         self.log("test/loss", loss)
         self.log("test/acc", self.acc)
+        self.log("test/auroc", self.auroc)
         return loss
 
     def configure_optimizers(self):

@@ -1,26 +1,26 @@
 """
-    Consolidates all hydra configs into one class.
+Consolidates all hydra configs into one class.
 """
 
 from pathlib import Path
 
-from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
 
 
 class CustomConfig:
     """
-        Flattens all hydra configuration files.
-        See configuration files under config/ for more information regarding individual parameters.
+    Flattens all hydra configuration files.
+    See configuration files under config/ for more information regarding individual parameters.
     """
+
     def __init__(self, cfg: DictConfig = None):
         if cfg is None:
             raise ValueError("Initialize with a hydra config.")
         self.cfg = cfg
 
-        self.data_dir = Path(to_absolute_path(self.cfg.data.data_dir))
-        self.file_dir = Path(to_absolute_path(self.cfg.data.file_dir))
-        self.process_dir = Path(to_absolute_path(self.cfg.data.process_dir))
+        self.data_dir = Path(self.cfg.data.data_dir)
+        self.file_dir = Path(self.cfg.data.file_dir)
+        self.process_dir = Path(self.cfg.data.process_dir)
 
         self.d_model: int = self.cfg.model.d_model
         self.data_len: int = self.cfg.model.data_len
@@ -31,13 +31,8 @@ class CustomConfig:
         self.num_special: int = self.cfg.model.num_special
         self.num_program: int = self.cfg.model.num_program
         self.num_note: int = self.cfg.model.num_note
-        self.num_velocity: int = self.cfg.model.num_velocity
-        self.num_control: int = self.cfg.model.num_control
-        self.num_value: int = self.cfg.model.num_value
-        self.num_pitch_1: int = self.cfg.model.num_pitch_1
-        self.num_pitch_2: int = self.cfg.model.num_pitch_2
         self.num_tick: int = self.cfg.model.num_tick
-        self.num_tokens: int = self.cfg.model.num_token
+        self.num_tokens: int = self.num_special + self.num_program + self.num_note + self.num_tick
         self.segments: int = self.cfg.model.segments
 
         self.acc: int = self.cfg.train.acc

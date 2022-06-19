@@ -4,12 +4,13 @@ import torch
 from hydra import compose, initialize
 from torch import Tensor
 
+from config.config import CustomConfig
 from data.datamodule import MusicDataModule
 
 
 class TestDataModule(unittest.TestCase):
     def setUp(self) -> None:
-        with initialize(config_path="../config"):
+        with initialize(config_path="../config", version_base=None):
             cfg = compose(
                 config_name="config",
                 overrides=[
@@ -18,8 +19,8 @@ class TestDataModule(unittest.TestCase):
                     "train.num_workers=1",
                 ],
             )
-            self.cfg = cfg
-            self.module = MusicDataModule(cfg)
+            self.cfg = CustomConfig(cfg)
+            self.module = MusicDataModule(self.cfg)
         self.module.prepare_data()
         self.module.setup()
 
@@ -35,7 +36,9 @@ class TestDataModule(unittest.TestCase):
             self.assertEqual(
                 data.size(),
                 (
-                    self.cfg.train.batch_size,
-                    self.cfg.model.data_len + 1,
+                    self.cfg.batch_size,
+                    self.cfg.data_len + 1,
                 ),
             )
+            self.assertTrue(torch.all(data >= 0))
+            self.assertTrue(torch.all(data < self.cfg.num_tokens))

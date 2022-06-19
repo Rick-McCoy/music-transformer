@@ -54,14 +54,16 @@ class Transformer(nn.Module):
             dropout=dropout,
         )
         self.encoder = nn.Sequential(
-            TransformerLayer(
-                d_model=d_model,
-                dropout=dropout,
-                ff=ff,
-                nhead=nhead,
-                data_len=data_len,
-            )
-            for _ in range(num_layers)
+            *[
+                TransformerLayer(
+                    d_model=d_model,
+                    dropout=dropout,
+                    ff=ff,
+                    nhead=nhead,
+                    data_len=data_len,
+                )
+                for _ in range(num_layers)
+            ]
         )
         self.norm = nn.LayerNorm((d_model,))
         self.linear = nn.Linear(
