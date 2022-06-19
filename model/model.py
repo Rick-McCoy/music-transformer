@@ -5,7 +5,7 @@
 import torch
 from pytorch_lightning import LightningModule
 from torch import Tensor
-from torchmetrics import AUROC, Accuracy
+from torchmetrics import Accuracy
 
 from model.loss import CrossEntropy
 from model.transformer import Transformer
