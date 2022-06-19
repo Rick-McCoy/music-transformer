@@ -44,6 +44,7 @@ def main(cfg: DictConfig = None) -> None:
             num_layers=custom_cfg.num_layers,
             num_tokens=custom_cfg.num_tokens,
             segments=custom_cfg.segments,
+            is_training=False,
         )
         batch_trainer = Trainer(
             accelerator="auto",
@@ -82,6 +83,7 @@ def main(cfg: DictConfig = None) -> None:
             num_layers=custom_cfg.num_layers,
             num_tokens=custom_cfg.num_tokens,
             segments=custom_cfg.segments,
+            is_training=False,
         )
         lr_trainer = Trainer(
             accelerator="auto",

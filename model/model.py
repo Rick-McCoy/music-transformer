@@ -2,7 +2,6 @@
     Defines MusicModel class.
 """
 
-import warnings
 import torch
 from pytorch_lightning import LightningModule
 from torch import Tensor
@@ -29,6 +28,7 @@ class MusicModel(LightningModule):
         num_layers: int,
         num_tokens: int,
         segments: int,
+        is_training: bool = True,
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
@@ -47,6 +47,7 @@ class MusicModel(LightningModule):
         self.acc = Accuracy(top_k=1, ignore_index=0, mdmc_average="global")
         self.auroc = AUROC(num_classes=num_tokens)
         self.example_input_array = torch.zeros(1, data_len, dtype=torch.int64)
+        self.is_training = is_training
 
     def forward(self, data: Tensor) -> Tensor:
         return self.transformer(data)
@@ -57,40 +58,26 @@ class MusicModel(LightningModule):
     def training_step(self, batch: Tensor, batch_idx: int) -> Tensor:
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
-        self.acc(output, batch[:, 1:])
-        probs = torch.softmax(output, dim=1)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=UserWarning)
-            self.auroc(probs, batch[:, 1:])
-        self.log("train/loss", loss)
-        self.log("train/acc", self.acc)
-        self.log("train/auroc", self.auroc)
+        if self.is_training:
+            self.acc(output, batch[:, 1:])
+            self.log("train/loss", loss)
+            self.log("train/acc", self.acc)
         return loss
 
     def validation_step(self, batch: Tensor, batch_idx: int) -> Tensor:
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         self.acc(output, batch[:, 1:])
-        probs = torch.softmax(output, dim=1)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=UserWarning)
-            self.auroc(probs, batch[:, 1:])
         self.log("val/loss", loss)
         self.log("val/acc", self.acc)
-        self.log("val/auroc", self.auroc)
         return loss
 
     def test_step(self, batch: Tensor, batch_idx: int) -> Tensor:
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         self.acc(output, batch[:, 1:])
-        probs = torch.softmax(output, dim=1)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=UserWarning)
-            self.auroc(probs, batch[:, 1:])
         self.log("test/loss", loss)
         self.log("test/acc", self.acc)
-        self.log("test/auroc", self.auroc)
         return loss
 
     def configure_optimizers(self):
