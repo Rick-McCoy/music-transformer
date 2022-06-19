@@ -1,3 +1,5 @@
+import warnings
+
 from torch import Tensor, nn
 from torch.utils.checkpoint import checkpoint_sequential
 
@@ -75,11 +77,13 @@ class Transformer(nn.Module):
     def forward(self, data: Tensor) -> Tensor:
         embedded = self.embedding(data)
         encoded = self.pos_encoding(embedded)
-        transformed = checkpoint_sequential(
-            self.encoder,
-            self.segments,
-            encoded,
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=UserWarning)
+            transformed = checkpoint_sequential(
+                functions=self.encoder,
+                segments=self.segments,
+                input=encoded,
+            )
         normalized = self.norm(transformed)
         projected: Tensor = self.linear(normalized)
         output = projected.permute([0, -1] + list(range(1, projected.ndim - 1)))

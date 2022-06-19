@@ -46,6 +46,7 @@ class CustomConfig:
         self.gpus: int = self.cfg.train.gpus
         self.limit_batches: int = self.cfg.train.limit_batches
         self.learning_rate: float = self.cfg.train.lr
+        self.max_epochs: int = self.cfg.train.max_epochs
         self.max_time: str = self.cfg.train.max_time
         self.monitor: bool = self.cfg.train.monitor
         self.num_workers: int = self.cfg.train.num_workers

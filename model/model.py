@@ -2,6 +2,7 @@
     Defines MusicModel class.
 """
 
+import warnings
 import torch
 from pytorch_lightning import LightningModule
 from torch import Tensor
@@ -57,7 +58,10 @@ class MusicModel(LightningModule):
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         self.acc(output, batch[:, 1:])
-        self.auroc(output, batch[:, 1:])
+        probs = torch.softmax(output, dim=1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=UserWarning)
+            self.auroc(probs, batch[:, 1:])
         self.log("train/loss", loss)
         self.log("train/acc", self.acc)
         self.log("train/auroc", self.auroc)
@@ -67,7 +71,10 @@ class MusicModel(LightningModule):
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         self.acc(output, batch[:, 1:])
-        self.auroc(output, batch[:, 1:])
+        probs = torch.softmax(output, dim=1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=UserWarning)
+            self.auroc(probs, batch[:, 1:])
         self.log("val/loss", loss)
         self.log("val/acc", self.acc)
         self.log("val/auroc", self.auroc)
@@ -77,7 +84,10 @@ class MusicModel(LightningModule):
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         self.acc(output, batch[:, 1:])
-        self.auroc(output, batch[:, 1:])
+        probs = torch.softmax(output, dim=1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=UserWarning)
+            self.auroc(probs, batch[:, 1:])
         self.log("test/loss", loss)
         self.log("test/acc", self.acc)
         self.log("test/auroc", self.auroc)

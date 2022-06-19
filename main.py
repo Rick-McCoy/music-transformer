@@ -50,6 +50,7 @@ def main(cfg: DictConfig = None) -> None:
             accumulate_grad_batches=2,
             detect_anomaly=True,
             devices=devices,
+            max_epochs=custom_cfg.max_epochs,
             precision=16,
         )
         try:
@@ -87,10 +88,16 @@ def main(cfg: DictConfig = None) -> None:
             accumulate_grad_batches=accumulate,
             detect_anomaly=True,
             devices=devices,
+            max_epochs=custom_cfg.max_epochs,
             precision=16,
         )
-        lr_finder = lr_trainer.tuner.lr_find(model=lr_model, datamodule=datamodule, max_lr=0.01)
+        lr_finder = lr_trainer.tuner.lr_find(
+            model=lr_model,
+            datamodule=datamodule,
+            max_lr=0.01,
+        )
         custom_cfg.learning_rate = lr_finder.suggestion()
+        print(f"Learning rate: {custom_cfg.learning_rate}")
         del lr_model, lr_trainer
 
     model = MusicModel(
@@ -135,6 +142,7 @@ def main(cfg: DictConfig = None) -> None:
         limit_test_batches=custom_cfg.limit_batches,
         log_every_n_steps=1,
         logger=[logger],
+        max_epochs=custom_cfg.max_epochs,
         max_time=max_time,
         num_sanity_val_steps=2,
         precision=16,
