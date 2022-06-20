@@ -1,10 +1,8 @@
-import os
 from pathlib import Path
 
 import hydra
 import torch
 import torch.nn.functional as F
-from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
 from torch import Tensor
 from tqdm import tqdm
@@ -18,32 +16,50 @@ from model.model import MusicModel
 def find_best_checkpoint(checkpoint_dir: Path) -> Path:
     min_val_loss = 1e9
     min_filename = ""
-    for _, _, files in checkpoint_dir.iterdir():
-        for file in files:
-            # Filename: epoch={}-val_loss={}.ckpt
-            file: Path
-            if file.suffix == ".ckpt":
-                filename = file.name
-                val_loss = float(filename.split("-")[1].split("=")[1].split(".")[0])
-                if val_loss < min_val_loss:
-                    min_val_loss = val_loss
-                    min_filename = filename
+    for filename in checkpoint_dir.iterdir():
+        # Filename is of the form: epoch={}-val_loss={}.ckpt
+        val_loss = float(filename.stem.split("-")[1].split("=")[1])
+        if val_loss < min_val_loss:
+            min_val_loss = val_loss
+            min_filename = filename
 
-    return checkpoint_dir / min_filename
+    return min_filename
+
 
 def top_p_sampling(logits: Tensor, prob: float = 0.9) -> Tensor:
-    sorted_logits, sorted_indices = torch.sort(logits, descending=True)
-    cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=0), dim=0)
+    """
+    Perform top-p sampling on the logits.
+    Top-p sampling, like top-k sampling, is a method of sampling from a distribution
+    that is defined by a list of probabilities.
+    After sorting the probabilities in descending order, we calculate the cumulative sum
+    of the probabilities.
+    We then only consider up to the first probability that has a cumulative sum greater than
+    or equal to `prob`, and ignore the rest.
 
-    sorted_indices_to_remove = cumulative_probs > prob
-    sorted_indices_to_remove[1:] = sorted_indices_to_remove[:-1].clone()
-    sorted_indices_to_remove[0] = 0
+    Args:
+        logits: Tensor of logits (required).
+        prob: Probability of sampling (default: 0.9).
 
-    indices_to_remove = sorted_indices[sorted_indices_to_remove]
-    logits[indices_to_remove] = -float("Inf")
+    Returns:
+        LongTensor of sampled indice.
 
-    pred = torch.multinomial(F.softmax(logits, dim=0), num_samples=1)
-    return pred
+    Shapes:
+        - logits: (num_classes, )
+        - output: (1, )
+    """
+    # Get probabilities from logits
+    probs = F.softmax(logits, dim=-1)
+    # Sort the probabilities in descending order
+    sorted_probs, sorted_indices = torch.sort(probs, descending=True)
+    # Get the cumulative sum of the probabilities
+    cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+    # Get the indice of the first cumulative probability that is greater than or equal to `prob`
+    indice = torch.argmax(cumulative_probs >= prob, dim=-1)
+    # Zero out logits that are not sampled
+    logits[sorted_indices[indice + 1:]].fill_(-float("inf"))
+    # Sample from the logits
+    output = torch.multinomial(logits, num_samples=1)
+    return output
 
 
 @hydra.main(config_path="config", config_name="inference", version_base=None)
