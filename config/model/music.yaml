@@ -1,7 +1,7 @@
 d_model: 128
 data_len: 256
 dropout: 0.1
-ff: 128
+feed_forward: 128
 nhead: 2
 num_layers: 2
 num_special: 5

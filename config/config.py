@@ -27,7 +27,7 @@ class CustomConfig:
         self.d_model: int = self.cfg.model.d_model
         self.data_len: int = self.cfg.model.data_len
         self.dropout: float = self.cfg.model.dropout
-        self.feed_forward: bool = self.cfg.model.ff
+        self.feed_forward: bool = self.cfg.model.feed_forward
         self.nhead: int = self.cfg.model.nhead
         self.num_layers: int = self.cfg.model.num_layers
         self.num_special: int = self.cfg.model.num_special

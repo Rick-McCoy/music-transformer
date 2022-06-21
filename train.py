@@ -11,7 +11,7 @@ if __name__ == "__main__":
     parser.add_argument("--d_model", type=int)
     parser.add_argument("--data_len", type=int)
     parser.add_argument("--dropout", type=float)
-    parser.add_argument("--ff", type=int)
+    parser.add_argument("--feed_forward", type=int)
     parser.add_argument("--nhead", type=int)
     parser.add_argument("--num_layers", type=int)
     args = parser.parse_args()
@@ -30,7 +30,7 @@ if __name__ == "__main__":
                 f"model.d_model={config.d_model}",
                 f"model.data_len={config.data_len}",
                 f"model.dropout={config.dropout}",
-                f"model.ff={config.ff}",
+                f"model.feed_forward={config.feed_forward}",
                 f"model.nhead={config.nhead}",
                 f"model.num_layers={config.num_layers}",
                 f"model.segments={segments}",

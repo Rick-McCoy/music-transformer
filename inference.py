@@ -89,6 +89,8 @@ def main(cfg: DictConfig = None) -> None:
             batch: Tensor
             batch = batch.cuda()
             data = batch[:1, 1:]
+            if data[0, -1] == tokenizer.end or data[0, -1] == tokenizer.end:
+                continue
             tokens = data[0].detach().cpu().numpy()
             event_list = tokenizer.tokens_to_events(tokens)
             midi_file = write_midi(event_list)

@@ -129,7 +129,7 @@ def main(cfg: DictConfig = None) -> None:
     if custom_cfg.monitor:
         callbacks.append(DeviceStatsMonitor())
     if custom_cfg.early_stop:
-        callbacks.append(EarlyStopping(monitor="val/loss", mode="min"))
+        callbacks.append(EarlyStopping(monitor="val/loss", mode="min", patience=10))
 
     custom_cfg.log_dir.mkdir(parents=True, exist_ok=True)
     if custom_cfg.wandb:

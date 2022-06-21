@@ -16,7 +16,7 @@ class TestTransformer(unittest.TestCase):
                 d_model=self.cfg.d_model,
                 data_len=self.cfg.data_len,
                 dropout=self.cfg.dropout,
-                ff=self.cfg.feed_forward,
+                feed_forward=self.cfg.feed_forward,
                 nhead=self.cfg.nhead,
                 num_layers=self.cfg.num_layers,
                 num_tokens=self.cfg.num_tokens,

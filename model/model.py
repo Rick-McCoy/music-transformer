@@ -37,7 +37,7 @@ class MusicModel(LightningModule):
             d_model=d_model,
             data_len=data_len,
             dropout=dropout,
-            ff=feed_forward,
+            feed_forward=feed_forward,
             nhead=nhead,
             num_layers=num_layers,
             num_tokens=num_tokens,
@@ -50,9 +50,6 @@ class MusicModel(LightningModule):
 
     def forward(self, data: Tensor) -> Tensor:
         return self.transformer(data)
-
-    def on_train_start(self) -> None:
-        self.logger.log_hyperparams(params={"lr": self.hparams.learning_rate})
 
     def training_step(self, batch: Tensor, batch_idx: int) -> Tensor:
         output = self(batch[:, :-1])

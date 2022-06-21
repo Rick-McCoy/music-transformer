@@ -12,7 +12,7 @@ class TransformerLayer(nn.Module):
         self,
         d_model: int,
         dropout: float,
-        ff: int,
+        feed_forward: int,
         nhead: int,
         data_len: int,
     ) -> None:
@@ -20,7 +20,7 @@ class TransformerLayer(nn.Module):
         self.layer = nn.TransformerEncoderLayer(
             d_model=d_model,
             nhead=nhead,
-            dim_feedforward=ff,
+            dim_feedforward=feed_forward,
             dropout=dropout,
             batch_first=True,
             norm_first=True,
@@ -39,7 +39,7 @@ class Transformer(nn.Module):
         d_model: int,
         data_len: int,
         dropout: float,
-        ff: int,
+        feed_forward: int,
         nhead: int,
         num_layers: int,
         num_tokens: int,
@@ -60,7 +60,7 @@ class Transformer(nn.Module):
                 TransformerLayer(
                     d_model=d_model,
                     dropout=dropout,
-                    ff=ff,
+                    feed_forward=feed_forward,
                     nhead=nhead,
                     data_len=data_len,
                 )
