@@ -56,9 +56,9 @@ def top_p_sampling(logits: Tensor, prob: float = 0.9) -> Tensor:
     # Get the indice of the first cumulative probability that is greater than or equal to `prob`
     indice = torch.argmax(cumulative_probs >= prob, dim=-1)
     # Zero out logits that are not sampled
-    logits[sorted_indices[indice + 1:]].fill_(-float("inf"))
+    logits[sorted_indices[indice + 1 :]].fill_(-float("inf"))
     # Sample from the logits
-    output = torch.multinomial(logits, num_samples=1)
+    output = torch.multinomial(F.softmax(logits, dim=-1), num_samples=1)
     return output
 
 
