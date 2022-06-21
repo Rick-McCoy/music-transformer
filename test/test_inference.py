@@ -12,10 +12,17 @@ class TestInference(unittest.TestCase):
         pass
 
     def test_top_p_sampling(self):
-        logits = torch.arange(10, dtype=torch.float32) * 100
-        output = top_p_sampling(logits.cuda(), prob=0.9).detach().cpu().numpy()
-        self.assertEqual(output.shape, (1,))
-        self.assertEqual(output[0], 9)
+        logits_1 = torch.arange(10, dtype=torch.float32) * 100
+        output_1 = top_p_sampling(logits_1, prob=0.9)
+        self.assertEqual(output_1, torch.LongTensor([9]))
+        logits_2 = torch.arange(start=10, end=1, step=-1, dtype=torch.float32) * 100
+        output_2 = top_p_sampling(logits_2, prob=0.9)
+        self.assertEqual(output_2, torch.LongTensor([0]))
+        logits_3 = torch.zeros(10, dtype=torch.float32)
+        random_index = torch.randint(0, 10, (1,)).item()
+        logits_3[random_index] = 1000
+        output_3 = top_p_sampling(logits_3, prob=0.9)
+        self.assertEqual(output_3, torch.LongTensor([random_index]))
 
     def test_find_best_checkpoint(self):
         temp_dir_uuid = uuid.uuid4()
