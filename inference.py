@@ -15,7 +15,7 @@ from model.model import MusicModel
 
 def find_best_checkpoint(checkpoint_dir: Path) -> Path:
     min_val_loss = 1e9
-    min_filename = ""
+    min_filename = Path("")
     for filename in checkpoint_dir.iterdir():
         # Filename is of the form: epoch={}-val_loss={}.ckpt
         val_loss = float(filename.stem.split("-")[1].split("=")[1])
@@ -54,7 +54,7 @@ def top_p_sampling(logits: Tensor, prob: float = 0.9) -> Tensor:
     # Get the cumulative sum of the probabilities
     cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
     # Get the indice of the first cumulative probability that is greater than or equal to `prob`
-    indice = torch.argmax(cumulative_probs >= prob, dim=-1)
+    indice = torch.argmax((cumulative_probs >= prob).float(), dim=-1)
     # Zero out logits that are not sampled
     logits[sorted_indices[indice + 1 :]].fill_(-float("inf"))
     # Sample from the logits
