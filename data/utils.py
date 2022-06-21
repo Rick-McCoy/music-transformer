@@ -145,7 +145,7 @@ class Tokenizer:
         return event_list
 
 
-def prepare_data(cfg: CustomConfig) -> None:
+def prepare_data(cfg: CustomConfig, delete_invalid_files: bool = False) -> None:
     if not cfg.process_dir.is_dir():
         cfg.process_dir.mkdir(parents=True)
     filenames = []
@@ -164,6 +164,8 @@ def prepare_data(cfg: CustomConfig) -> None:
             filenames.append(str(relative_path) + "\n")
         except (EOFError, KeySignatureError, IndexError) as exception:
             tqdm.write(f"{type(exception).__name__}: {relative_path}")
+            if delete_invalid_files:
+                path.unlink()
             continue
 
     filenames.sort()

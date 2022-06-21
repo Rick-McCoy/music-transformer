@@ -25,9 +25,7 @@ class MusicDataset(Dataset):
         data: ndarray = np.load(path).astype(np.int64)
         orig_len = data.shape[0]
         if self.length > orig_len:
-            return np.pad(
-                data, (0, self.length - orig_len), mode="constant", constant_values=0
-            )
+            return np.pad(data, (0, self.length - orig_len), mode="constant", constant_values=0)
         random_index = random.randint(0, orig_len - self.length)
         return data[random_index : random_index + self.length]
 
@@ -44,8 +42,8 @@ class MusicDataModule(LightningDataModule):
         self.val_dataset: Optional[Dataset] = None
         self.test_dataset: Optional[Dataset] = None
 
-    def prepare_data(self) -> None:
-        prepare_data(self.cfg)
+    def prepare_data(self, delete_invalid_files: bool = False) -> None:
+        prepare_data(self.cfg, delete_invalid_files)
 
     def setup(self, stage: Optional[str] = None) -> None:
         file_path = self.cfg.file_dir / "midi.txt"
@@ -59,9 +57,7 @@ class MusicDataModule(LightningDataModule):
         process_dir = self.cfg.process_dir
         if stage == "fit" or stage == "validate" or stage is None:
             full_dataset = MusicDataset(self.cfg, full_path_list, process_dir)
-            self.train_dataset, self.val_dataset = random_split(
-                full_dataset, [train_len, val_len]
-            )
+            self.train_dataset, self.val_dataset = random_split(full_dataset, [train_len, val_len])
         if stage == "test" or stage == "predict" or stage is None:
             self.test_dataset = MusicDataset(self.cfg, test_path_list, process_dir)
 

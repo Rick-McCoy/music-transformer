@@ -13,3 +13,4 @@ max_epochs: 1000
 max_time: ""
 monitor: False
 num_workers: 12
+wandb: True

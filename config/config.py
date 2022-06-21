@@ -52,6 +52,7 @@ class CustomConfig:
         self.max_time: str = self.cfg.train.max_time
         self.monitor: bool = self.cfg.train.monitor
         self.num_workers: int = self.cfg.train.num_workers
+        self.wandb: bool = self.cfg.train.wandb
 
         if hasattr(self.cfg, "best_checkpoint"):
             self.best_checkpoint: bool = self.cfg.best_checkpoint

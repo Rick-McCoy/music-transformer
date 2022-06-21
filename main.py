@@ -132,7 +132,10 @@ def main(cfg: DictConfig = None) -> None:
         callbacks.append(EarlyStopping(monitor="val/loss", mode="min"))
 
     custom_cfg.log_dir.mkdir(parents=True, exist_ok=True)
-    logger = WandbLogger(name="music-model", save_dir=str(custom_cfg.log_dir))
+    if custom_cfg.wandb:
+        logger = WandbLogger(save_dir=str(custom_cfg.log_dir))
+    else:
+        logger = None
     max_time = None if custom_cfg.max_time == "" else custom_cfg.max_time
 
     trainer = Trainer(
