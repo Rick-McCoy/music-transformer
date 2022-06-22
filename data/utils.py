@@ -1,5 +1,5 @@
 from enum import IntEnum
-from operator import attrgetter, itemgetter
+from operator import itemgetter
 from pathlib import Path
 from typing import List, Optional
 
@@ -12,29 +12,81 @@ from tqdm import tqdm
 from config.config import CustomConfig
 
 
-class InvalidProgramError(Exception):
-    pass
-
-
-class InvalidTypeError(Exception):
-    pass
-
-
-class InvalidNoteError(Exception):
-    pass
-
-
-class InvalidTickError(Exception):
-    pass
-
-
-class InvalidTokenError(Exception):
-    pass
-
-
 class MessageType(IntEnum):
     NOTE_OFF = 1
     NOTE_ON = 2
+
+
+class InvalidProgramError(Exception):
+    def __init__(self, program: int):
+        super().__init__()
+        self.program = program
+
+    def __repr__(self):
+        return f"Invalid program: {self.program}"
+
+    def __str__(self):
+        return self.__repr__()
+
+
+class InvalidDrumError(Exception):
+    def __init__(self, drum: int):
+        super().__init__()
+        self.drum = drum
+
+    def __repr__(self):
+        return f"Invalid drum: {self.drum}"
+
+    def __str__(self):
+        return self.__repr__()
+
+
+class InvalidTypeError(Exception):
+    def __init__(self, message_type: MessageType):
+        super().__init__()
+        self.message_type = message_type
+
+    def __repr__(self):
+        return f"Invalid type: {self.message_type}"
+
+    def __str__(self):
+        return self.__repr__()
+
+
+class InvalidNoteError(Exception):
+    def __init__(self, note: int):
+        super().__init__()
+        self.note = note
+
+    def __repr__(self):
+        return f"Invalid note: {self.note}"
+
+    def __str__(self):
+        return self.__repr__()
+
+
+class InvalidTickError(Exception):
+    def __init__(self, tick: int):
+        super().__init__()
+        self.tick = tick
+
+    def __repr__(self):
+        return f"Invalid tick: {self.tick}"
+
+    def __str__(self):
+        return self.__repr__()
+
+
+class InvalidTokenError(Exception):
+    def __init__(self, token: int):
+        super().__init__()
+        self.token = token
+
+    def __repr__(self):
+        return f"Invalid token: {self.token}"
+
+    def __str__(self):
+        return self.__repr__()
 
 
 class Event:
@@ -42,13 +94,15 @@ class Event:
         self,
         message_type: Optional[MessageType],
         tick: int,
-        program: int,
+        program: Optional[int] = None,
         note: Optional[int] = None,
+        drum: Optional[int] = None,
     ):
         self.type = message_type
         self.tick = tick
         self.program = program
         self.note = note
+        self.drum = drum
 
 
 class Tokenizer:
@@ -59,53 +113,85 @@ class Tokenizer:
         self.note_off = 3
         self.note_on = 4
         self.num_program = cfg.num_program
+        self.num_drum = cfg.num_drum
         self.num_note = cfg.num_note
         self.num_tick = cfg.num_tick
         self.special_limit = cfg.num_special
         self.program_limit = self.special_limit + self.num_program
-        self.note_limit = self.program_limit + self.num_note
+        self.drum_limit = self.program_limit + self.num_drum
+        self.note_limit = self.drum_limit + self.num_note
         self.tick_limit = self.note_limit + self.num_tick
 
     def program_to_token(self, program: int) -> int:
         if 0 > program or program >= self.num_program:
-            raise InvalidProgramError
+            raise InvalidProgramError(program)
         return program + self.special_limit
+
+    def drum_to_token(self, drum: int) -> int:
+        if 0 > drum or drum >= self.num_drum:
+            raise InvalidDrumError(drum)
+        return drum + self.program_limit
 
     def type_to_token(self, message_type: MessageType) -> int:
         if message_type == MessageType.NOTE_ON:
             return self.note_on
         if message_type == MessageType.NOTE_OFF:
             return self.note_off
-        raise InvalidTypeError
+        raise InvalidTypeError(message_type)
 
     def note_to_token(self, note: int) -> int:
         if 0 > note or note >= self.num_note:
-            raise InvalidNoteError
-        return note + self.program_limit
+            raise InvalidNoteError(note)
+        return note + self.drum_limit
 
     def tick_to_token(self, tick: int) -> int:
         if 0 > tick or tick >= self.num_tick:
-            raise InvalidTickError
+            raise InvalidTickError(tick)
         return tick + self.note_limit
+
+    def token_to_string(self, token: int) -> str:
+        if token < self.special_limit:
+            if token == self.pad:
+                return "PAD"
+            if token == self.begin:
+                return "BEGIN"
+            if token == self.end:
+                return "END"
+            if token == self.note_on:
+                return "NOTE_ON"
+            if token == self.note_off:
+                return "NOTE_OFF"
+            raise InvalidTokenError(token)
+        if token < self.program_limit:
+            return "PROGRAM_" + str(token - self.special_limit)
+        if token < self.drum_limit:
+            return "DRUM_" + str(token - self.program_limit)
+        if token < self.note_limit:
+            return "NOTE_" + str(token - self.drum_limit)
+        if token < self.tick_limit:
+            return "TICK_" + str(token - self.note_limit)
+        raise InvalidTokenError(token)
 
     def tokenize(self, event_list: List[Event]) -> ndarray:
         token_list = [self.begin]
         prev_tick = 0
-        prev_program = -1
+        prev_program = None
         prev_on_off = MessageType.NOTE_OFF
         for event in event_list:
             tick_delta = min(event.tick - prev_tick, self.num_tick)
             if tick_delta > 0:
                 token_list.append(self.tick_to_token(tick_delta - 1))
                 prev_tick = event.tick
-            if event.program != prev_program:
-                token_list.append(self.program_to_token(event.program))
-                prev_program = event.program
             if event.type != prev_on_off:
                 token_list.append(self.type_to_token(event.type))
                 prev_on_off = event.type
+            if event.program is not None and event.program != prev_program:
+                token_list.append(self.program_to_token(event.program))
+                prev_program = event.program
             if event.note is not None:
                 token_list.append(self.note_to_token(event.note))
+            if event.drum is not None:
+                token_list.append(self.drum_to_token(event.drum))
         token_list.append(self.end)
 
         return np.array(token_list, dtype=np.int64)
@@ -124,10 +210,19 @@ class Tokenizer:
                 if token == self.note_off:
                     cur_on_off = MessageType.NOTE_OFF
                 continue
-            if token < self.program_limit:
+            elif token < self.program_limit:
                 cur_program = token - self.special_limit
+            elif token < self.drum_limit:
+                drum = token - self.program_limit
+                event_list.append(
+                    Event(
+                        message_type=cur_on_off,
+                        tick=cur_tick,
+                        drum=drum,
+                    )
+                )
             elif token < self.note_limit:
-                note = token - self.program_limit
+                note = token - self.drum_limit
                 event_list.append(
                     Event(
                         message_type=cur_on_off,
@@ -140,7 +235,7 @@ class Tokenizer:
                 tick = token - self.note_limit + 1
                 cur_tick += tick
             else:
-                raise InvalidTokenError
+                raise InvalidTokenError(token)
 
         return event_list
 
@@ -166,7 +261,6 @@ def prepare_data(cfg: CustomConfig, delete_invalid_files: bool = False) -> None:
             tqdm.write(f"{type(exception).__name__}: {relative_path}")
             if delete_invalid_files:
                 path.unlink()
-            continue
 
     filenames.sort()
     text_path = cfg.file_dir / "midi.txt"
@@ -192,11 +286,13 @@ def read_midi(midi_file: MidiFile) -> List[Event]:
     for tick, message in messages:
         if message.type == "note_on" or message.type == "note_off":
             if message.channel == 9:
-                program = message.note + 128
+                program = None
                 note = None
+                drum = message.note
             else:
                 program = programs[message.channel]
                 note = message.note
+                drum = None
             events.append(
                 Event(
                     message_type=MessageType.NOTE_ON
@@ -205,12 +301,24 @@ def read_midi(midi_file: MidiFile) -> List[Event]:
                     tick=tick,
                     program=program,
                     note=note,
+                    drum=drum,
                 )
             )
         elif message.type == "program_change" and message.channel != 9:
             programs[message.channel] = message.program
 
-    events.sort(key=attrgetter("tick", "type", "program", "note"))
+    events.sort(
+        key=lambda event: (
+            event.tick,
+            event.type,
+            event.program is None,
+            event.program,
+            event.note is None,
+            event.note,
+            event.drum is None,
+            event.drum,
+        )
+    )
 
     return events
 
@@ -238,12 +346,12 @@ def write_midi(event_list: List[Event]) -> MidiFile:
             track.append(Message("program_change", channel=channel, program=program, time=0))
 
     for event in event_list:
-        if event.program < 128:
+        if event.program is not None:
             channel = program_map[event.program]
             note = event.note
         else:
             channel = 9
-            note = event.program - 128
+            note = event.drum
         track.append(
             Message(
                 "note_on" if event.type == MessageType.NOTE_ON else "note_off",

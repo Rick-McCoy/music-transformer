@@ -32,9 +32,12 @@ class CustomConfig:
         self.num_layers: int = self.cfg.model.num_layers
         self.num_special: int = self.cfg.model.num_special
         self.num_program: int = self.cfg.model.num_program
+        self.num_drum: int = self.cfg.model.num_drum
         self.num_note: int = self.cfg.model.num_note
         self.num_tick: int = self.cfg.model.num_tick
-        self.num_tokens: int = self.num_special + self.num_program + self.num_note + self.num_tick
+        self.num_tokens: int = (
+            self.num_special + self.num_program + self.num_drum + self.num_note + self.num_tick
+        )
         self.segments: int = self.cfg.model.segments
 
         self.acc: int = self.cfg.train.acc

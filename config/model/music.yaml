@@ -5,7 +5,8 @@ feed_forward: 128
 nhead: 2
 num_layers: 2
 num_special: 5
-num_program: 256
+num_program: 128
+num_drum: 128
 num_note: 128
 num_tick: 256
 segments: 2
