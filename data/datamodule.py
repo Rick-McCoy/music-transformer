@@ -50,14 +50,16 @@ class MusicDataModule(LightningDataModule):
         with open(file_path, mode="r", encoding="utf-8") as file:
             path_list = file.readlines()
         random.shuffle(path_list)
-        val_len = test_len = int(len(path_list) * 0.1)
-        train_len = len(path_list) - val_len - test_len
-        full_path_list = path_list[:-test_len]
-        test_path_list = path_list[-test_len:]
+        split_length = int(len(path_list) * 0.1)
+        train_len = len(path_list) - split_length * 2
+        full_path_list = path_list[:-split_length]
+        test_path_list = path_list[-split_length:]
         process_dir = self.cfg.process_dir
         if stage == "fit" or stage == "validate" or stage is None:
             full_dataset = MusicDataset(self.cfg, full_path_list, process_dir)
-            self.train_dataset, self.val_dataset = random_split(full_dataset, [train_len, val_len])
+            self.train_dataset, self.val_dataset = random_split(
+                full_dataset, [train_len, split_length]
+            )
         if stage == "test" or stage == "predict" or stage is None:
             self.test_dataset = MusicDataset(self.cfg, test_path_list, process_dir)
 
