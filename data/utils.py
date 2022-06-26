@@ -339,8 +339,7 @@ def read_midi(midi_file: MidiFile) -> List[Event]:
             if message.channel == 9:
                 if (
                     message.type == "note_off"
-                    or message.type == "note_on"
-                    and message.velocity == 0
+                    or message.velocity == 0
                 ):
                     continue
                 program = None
