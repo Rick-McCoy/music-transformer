@@ -3,6 +3,7 @@
     This file initializes the model and data, and then runs the training.
 """
 import math
+import traceback
 
 import hydra
 from omegaconf import DictConfig
@@ -156,7 +157,11 @@ def main(cfg: DictConfig = None) -> None:
         precision=16,
     )
 
-    trainer.fit(model=model, datamodule=datamodule)
+    error_tuple = (RuntimeError,) if custom_cfg.ignore_runtime_error else tuple()
+    try:
+        trainer.fit(model=model, datamodule=datamodule)
+    except error_tuple as exception:
+        print(f"Error: {exception.__class__.__name__}. Traceback: {traceback.format_exc()}")
     trainer.test(model=model, datamodule=datamodule)
 
 

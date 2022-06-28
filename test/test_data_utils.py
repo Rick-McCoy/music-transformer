@@ -6,14 +6,7 @@ from hydra import compose, initialize
 from mido.midifiles.midifiles import MidiFile
 
 from config.config import CustomConfig
-from data.utils import (
-    Event,
-    MessageType,
-    Tokenizer,
-    prepare_data,
-    read_midi,
-    write_midi,
-)
+from data.utils import Event, MessageType, Tokenizer, read_midi, write_midi
 
 
 class TestDataUtils(unittest.TestCase):
@@ -21,7 +14,6 @@ class TestDataUtils(unittest.TestCase):
         with initialize(config_path="../config", version_base=None):
             cfg = compose(config_name="config")
         self.cfg = CustomConfig(cfg)
-        prepare_data(self.cfg)
         file_path = self.cfg.file_dir / "midi.txt"
         with open(file_path, mode="r", encoding="utf-8") as file:
             self.path_list = file.readlines()
@@ -30,25 +22,31 @@ class TestDataUtils(unittest.TestCase):
 
     def test_read_midi(self):
         self.assertTrue(self.path_list)
-        for path in self.path_list[:10]:
+        for path in self.path_list[:25]:
             filename = self.cfg.data_dir / path.strip()
-            events = read_midi(MidiFile(filename=filename, clip=True))
+            midi_file = MidiFile(filename=filename, clip=True)
+            events = read_midi(midi_file)
             prev_tick = 0
             for event in events:
                 tick_delta = event.tick - prev_tick
                 self.assertGreaterEqual(tick_delta, 0)
                 prev_tick = event.tick
-                self.assertGreaterEqual(event.program, 0)
-                self.assertLess(event.program, self.cfg.num_program)
-                if event.program < 128:
-                    self.assertGreaterEqual(event.note, 0)
-                    self.assertLess(event.note, self.cfg.num_note)
-                else:
+                if event.program is None:
                     self.assertIsNone(event.note)
+                    self.assertLess(event.drum, self.cfg.num_drum)
+                    self.assertEqual(event.type, MessageType.NOTE_ON)
+                else:
+                    self.assertLess(event.program, self.cfg.num_program)
+                    self.assertLess(event.note, self.cfg.num_note)
+                    self.assertIsNone(event.drum)
 
     def test_tokenize(self):
         self.assertEqual(
-            self.cfg.num_special + self.cfg.num_program + self.cfg.num_note + self.cfg.num_tick,
+            self.cfg.num_special
+            + self.cfg.num_program
+            + self.cfg.num_drum
+            + self.cfg.num_note
+            + self.cfg.num_tick,
             self.cfg.num_tokens,
         )
         event_list = []
@@ -86,38 +84,38 @@ class TestDataUtils(unittest.TestCase):
         )
         tokens = self.tokenizer.tokenize(event_list)
         self.assertEqual(tokens[0], self.tokenizer.begin)
-        self.assertEqual(tokens[1], self.tokenizer.special_limit + 0)
-        self.assertEqual(tokens[2], self.tokenizer.note_on)
-        self.assertEqual(tokens[3], self.tokenizer.program_limit + 64)
+        self.assertEqual(tokens[1], self.tokenizer.note_on)
+        self.assertEqual(tokens[2], self.tokenizer.special_limit + 0)
+        self.assertEqual(tokens[3], self.tokenizer.drum_limit + 64)
         self.assertEqual(tokens[4], self.tokenizer.note_limit + 1)
         self.assertEqual(tokens[5], self.tokenizer.special_limit + 8)
-        self.assertEqual(tokens[6], self.tokenizer.program_limit + 48)
+        self.assertEqual(tokens[6], self.tokenizer.drum_limit + 48)
         self.assertEqual(tokens[7], self.tokenizer.note_limit + 7)
-        self.assertEqual(tokens[8], self.tokenizer.special_limit + 0)
-        self.assertEqual(tokens[9], self.tokenizer.note_off)
-        self.assertEqual(tokens[10], self.tokenizer.program_limit + 64)
+        self.assertEqual(tokens[8], self.tokenizer.note_off)
+        self.assertEqual(tokens[9], self.tokenizer.special_limit + 0)
+        self.assertEqual(tokens[10], self.tokenizer.drum_limit + 64)
         self.assertEqual(tokens[11], self.tokenizer.note_limit + 1)
         self.assertEqual(tokens[12], self.tokenizer.special_limit + 8)
-        self.assertEqual(tokens[13], self.tokenizer.program_limit + 48)
+        self.assertEqual(tokens[13], self.tokenizer.drum_limit + 48)
         self.assertEqual(tokens[14], self.tokenizer.end)
 
     def test_tokens_to_notes(self):
         tokens = np.array(
             [
                 self.tokenizer.begin,
-                self.tokenizer.special_limit + 0,
                 self.tokenizer.note_on,
-                self.tokenizer.program_limit + 64,
-                self.tokenizer.note_limit + 1,
-                self.tokenizer.special_limit + 8,
-                self.tokenizer.program_limit + 48,
-                self.tokenizer.note_limit + 7,
                 self.tokenizer.special_limit + 0,
-                self.tokenizer.note_off,
-                self.tokenizer.program_limit + 64,
+                self.tokenizer.drum_limit + 64,
                 self.tokenizer.note_limit + 1,
                 self.tokenizer.special_limit + 8,
-                self.tokenizer.program_limit + 48,
+                self.tokenizer.drum_limit + 48,
+                self.tokenizer.note_limit + 7,
+                self.tokenizer.note_off,
+                self.tokenizer.special_limit + 0,
+                self.tokenizer.drum_limit + 64,
+                self.tokenizer.note_limit + 1,
+                self.tokenizer.special_limit + 8,
+                self.tokenizer.drum_limit + 48,
                 self.tokenizer.end,
             ],
             dtype=np.int64,
@@ -176,6 +174,7 @@ class TestDataUtils(unittest.TestCase):
         )
         midi_file = write_midi(event_list)
         track = midi_file.tracks[0]
+        self.assertEqual(len(track), 6)
         self.assertEqual(track[0].type, "program_change")
         self.assertEqual(track[0].channel, 10)
         self.assertEqual(track[0].program, 0)
@@ -193,14 +192,14 @@ class TestDataUtils(unittest.TestCase):
         self.assertEqual(track[3].note, 48)
         self.assertEqual(track[3].channel, 11)
         self.assertEqual(track[3].velocity, 64)
-        self.assertEqual(track[3].time, round(2 / 30 * midi_file.ticks_per_beat))
+        self.assertEqual(track[3].time, round(2 / 120 * midi_file.ticks_per_beat))
         self.assertEqual(track[4].type, "note_off")
         self.assertEqual(track[4].note, 64)
         self.assertEqual(track[4].channel, 10)
         self.assertEqual(track[4].velocity, 0)
-        self.assertEqual(track[4].time, round(8 / 30 * midi_file.ticks_per_beat))
+        self.assertEqual(track[4].time, round(8 / 120 * midi_file.ticks_per_beat))
         self.assertEqual(track[5].type, "note_off")
         self.assertEqual(track[5].note, 48)
         self.assertEqual(track[5].channel, 11)
         self.assertEqual(track[5].velocity, 0)
-        self.assertEqual(track[5].time, round(2 / 30 * midi_file.ticks_per_beat))
+        self.assertEqual(track[5].time, round(2 / 120 * midi_file.ticks_per_beat))

@@ -1,9 +1,9 @@
 import argparse
 import math
 
+import wandb
 from hydra import compose, initialize
 
-import wandb
 from main import main
 
 if __name__ == "__main__":
@@ -27,6 +27,7 @@ if __name__ == "__main__":
                 "train.auto_batch=True",
                 "train.auto_lr=True",
                 "train.gpus=1",
+                "train.ignore_runtime_error=True",
                 "train.limit_batches=0.1",
                 f"train.effective_batch_size={config.effective_batch_size}",
                 f"train.num_workers={config.num_workers}",

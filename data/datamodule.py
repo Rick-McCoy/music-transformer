@@ -3,19 +3,23 @@ from pathlib import Path
 from typing import List, Optional
 
 import numpy as np
+from mido import MidiFile
+from mido.midifiles.meta import KeySignatureError
 from numpy import ndarray
 from pytorch_lightning import LightningDataModule
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset, random_split
+from tqdm import tqdm
 
 from config.config import CustomConfig
-from data.utils import prepare_data
+from data.utils import Tokenizer, read_midi
 
 
 class MusicDataset(Dataset):
     def __init__(self, cfg: CustomConfig, path_list: List[str], process_dir: str) -> None:
         super().__init__()
         self.cfg = cfg
+        self.tokenizer = Tokenizer(cfg)
         self.length = cfg.data_len + 1
         self.path_list = path_list
         self.process_dir = process_dir
@@ -23,11 +27,18 @@ class MusicDataset(Dataset):
     def __getitem__(self, index: int) -> ndarray:
         path = Path(self.process_dir, self.path_list[index]).with_suffix(".npy")
         data: ndarray = np.load(path).astype(np.int64)
-        orig_len = data.shape[0]
-        if self.length > orig_len:
-            return np.pad(data, (0, self.length - orig_len), mode="constant", constant_values=0)
-        random_index = random.randint(0, orig_len - self.length)
-        return data[random_index : random_index + self.length]
+        if self.length > data.shape[0]:
+            return np.pad(
+                data,
+                (0, self.length - data.shape[0]),
+                mode="constant",
+                constant_values=0,
+            )
+        random_index = random.randint(0, data.shape[0] - self.length)
+        on_notes = self.tokenizer.determine_on_notes(data[:random_index])
+        return np.concatenate(
+            [on_notes, data[random_index : random_index + self.length - on_notes.shape[0]]]
+        )
 
     def __len__(self):
         return len(self.path_list)
@@ -43,7 +54,34 @@ class MusicDataModule(LightningDataModule):
         self.test_dataset: Optional[Dataset] = None
 
     def prepare_data(self, delete_invalid_files: bool = False) -> None:
-        prepare_data(self.cfg, delete_invalid_files)
+        if not self.cfg.process_dir.is_dir():
+            self.cfg.process_dir.mkdir(parents=True)
+        filenames = []
+        tokenizer = Tokenizer(self.cfg)
+        for path in tqdm(self.cfg.data_dir.glob("**/*.mid")):
+            path: Path
+            relative_path = path.relative_to(self.cfg.data_dir)
+            filename = self.cfg.process_dir / relative_path.with_suffix(".npy")
+            if filename.exists():
+                continue
+            filename.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                midi_file = MidiFile(filename=path, clip=True)
+            except (EOFError, KeySignatureError, IndexError) as exception:
+                tqdm.write(f"{path} is invalid: {exception.__class__.__name__}")
+                if delete_invalid_files:
+                    path.unlink()
+                continue
+            event_list = read_midi(midi_file)
+            tokens = tokenizer.tokenize(event_list)
+            np.save(filename, tokens.astype(np.int16))
+            filenames.append(str(relative_path) + "\n")
+
+        filenames.sort()
+        text_path = self.cfg.file_dir / "midi.txt"
+        if not text_path.exists():
+            with open(text_path, mode="w", encoding="utf-8") as file:
+                file.writelines(filenames)
 
     def setup(self, stage: Optional[str] = None) -> None:
         file_path = self.cfg.file_dir / "midi.txt"

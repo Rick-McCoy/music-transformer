@@ -85,25 +85,24 @@ def main(cfg: DictConfig = None) -> None:
     model.freeze()
     with torch.no_grad():
         model.cuda()
-        for batch in dataloader:
-            batch: Tensor
-            batch = batch.cuda()
-            data = batch[:1, 1:]
-            if data[0, -1] == tokenizer.end or data[0, -1] == tokenizer.end:
-                continue
-            tokens = data[0].detach().cpu().numpy()
-            event_list = tokenizer.tokens_to_events(tokens)
-            midi_file = write_midi(event_list)
-            midi_file.save(filename="input.mid")
-            for _ in tqdm(range(custom_cfg.data_len)):
-                output = model(data)[0, :, -1]
-                pred = top_p_sampling(output, prob=0.9).unsqueeze(dim=0)
-                data = torch.cat([data, pred], dim=-1)[:, 1:]
-            tokens = data[0].detach().cpu().numpy()
-            event_list = tokenizer.tokens_to_events(tokens)
-            midi_file = write_midi(event_list)
-            midi_file.save(filename="results.mid")
-            break
+        batch: Tensor = next(iter(dataloader))
+        tokens = batch[0].numpy()
+        event_list = tokenizer.tokens_to_events(tokens)
+        midi_file = write_midi(event_list)
+        midi_file.save(filename="input.mid")
+        with open("input_tokens.txt", mode="w", encoding="utf-8") as file:
+            file.write(tokenizer.tokens_to_string(tokens))
+        data = batch[:1, 1:].cuda()
+        for _ in tqdm(range(custom_cfg.data_len)):
+            output = model(data)[0, :, -1]
+            pred = top_p_sampling(output, prob=0.9).unsqueeze(dim=0)
+            data = torch.cat([data, pred], dim=-1)[:, 1:]
+        tokens = data[0].detach().cpu().numpy()
+        event_list = tokenizer.tokens_to_events(tokens)
+        midi_file = write_midi(event_list)
+        midi_file.save(filename="results.mid")
+        with open("output_tokens.txt", mode="w", encoding="utf-8") as file:
+            file.write(tokenizer.tokens_to_string(tokens))
 
 
 if __name__ == "__main__":

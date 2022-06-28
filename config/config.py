@@ -49,6 +49,7 @@ class CustomConfig:
         self.effective_batch_size: int = self.cfg.train.effective_batch_size
         self.fast_dev_run: bool = self.cfg.train.fast_dev_run
         self.gpus: int = self.cfg.train.gpus
+        self.ignore_runtime_error: bool = self.cfg.train.ignore_runtime_error
         self.limit_batches: int = self.cfg.train.limit_batches
         self.learning_rate: float = self.cfg.train.lr
         self.max_epochs: int = self.cfg.train.max_epochs

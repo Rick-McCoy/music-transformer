@@ -1,13 +1,10 @@
 from enum import IntEnum
 from operator import itemgetter
-from pathlib import Path
 from typing import List, Optional
 
 import numpy as np
 from mido import Message, MidiFile
-from mido.midifiles.meta import KeySignatureError
 from numpy import ndarray
-from tqdm import tqdm
 
 from config.config import CustomConfig
 
@@ -124,6 +121,7 @@ class Tokenizer:
         self.end = 2
         self.note_off = 3
         self.note_on = 4
+        self.tie = 5
         self.num_program = cfg.num_program
         self.num_drum = cfg.num_drum
         self.num_note = cfg.num_note
@@ -173,6 +171,8 @@ class Tokenizer:
                 return "NOTE_ON"
             if token == self.note_off:
                 return "NOTE_OFF"
+            if token == self.tie:
+                return "TIE"
             raise InvalidTokenError(token)
         if token < self.program_limit:
             return f"PROG_{token - self.special_limit:03d}"
@@ -198,7 +198,7 @@ class Tokenizer:
             if token < self.special_limit:
                 if token == self.begin:
                     result += string
-                elif token == self.end:
+                elif token == self.end or token == self.tie:
                     result += "\n" + string
                 elif token == self.pad:
                     result += " " + string
@@ -250,7 +250,7 @@ class Tokenizer:
     def tokens_to_events(self, tokens: ndarray) -> List[Event]:
         event_list: List[Event] = []
         cur_tick = 0
-        cur_program = -1
+        cur_program = 0
         cur_on_off = MessageType.NOTE_OFF
         for token in tokens:
             if token < self.special_limit:
@@ -260,7 +260,6 @@ class Tokenizer:
                     cur_on_off = MessageType.NOTE_ON
                 if token == self.note_off:
                     cur_on_off = MessageType.NOTE_OFF
-                continue
             elif token < self.program_limit:
                 cur_program = token - self.special_limit
             elif token < self.drum_limit:
@@ -290,34 +289,44 @@ class Tokenizer:
 
         return event_list
 
+    def determine_on_notes(self, tokens: ndarray) -> ndarray:
+        on_notes = np.zeros((self.num_program, self.num_note), dtype=bool)
+        on_drums = np.zeros((self.num_drum,), dtype=bool)
+        program = 0
+        cur_on_off = MessageType.NOTE_ON
+        for token in tokens:
+            if token < self.special_limit:
+                if token == self.note_on:
+                    cur_on_off = MessageType.NOTE_ON
+                if token == self.note_off:
+                    cur_on_off = MessageType.NOTE_OFF
+            elif token < self.program_limit:
+                program = token - self.special_limit
+            elif token < self.drum_limit:
+                drum = token - self.program_limit
+                on_drums[drum] = True
+            elif token < self.note_limit:
+                note = token - self.drum_limit
+                if cur_on_off == MessageType.NOTE_ON:
+                    on_notes[program, note] = True
+                else:
+                    on_notes[program, note] = False
 
-def prepare_data(cfg: CustomConfig, delete_invalid_files: bool = False) -> None:
-    if not cfg.process_dir.is_dir():
-        cfg.process_dir.mkdir(parents=True)
-    filenames = []
-    tokenizer = Tokenizer(cfg)
-    for path in tqdm(cfg.data_dir.glob("**/*.mid")):
-        path: Path
-        relative_path = path.relative_to(cfg.data_dir)
-        try:
-            filename = cfg.process_dir / relative_path.with_suffix(".npy")
-            if filename.exists():
-                continue
-            filename.parent.mkdir(parents=True, exist_ok=True)
-            event_list = read_midi(MidiFile(filename=path, clip=True))
-            tokens = tokenizer.tokenize(event_list)
-            np.save(filename, tokens.astype(np.int16))
-            filenames.append(str(relative_path) + "\n")
-        except (EOFError, KeySignatureError, IndexError) as exception:
-            tqdm.write(f"{type(exception).__name__}: {relative_path}")
-            if delete_invalid_files:
-                path.unlink()
+        result = []
+        for program in range(self.num_program):
+            if np.any(on_notes[program]):
+                result.append(program + self.special_limit)
+                for note in range(self.num_note):
+                    if on_notes[program, note]:
+                        result.append(note + self.drum_limit)
+        for drum in range(self.num_drum):
+            if on_drums[drum]:
+                result.append(drum + self.program_limit)
 
-    filenames.sort()
-    text_path = cfg.file_dir / "midi.txt"
-    if not text_path.exists():
-        with open(text_path, mode="w", encoding="utf-8") as file:
-            file.writelines(filenames)
+        if result:
+            result.append(self.tie)
+
+        return np.array(result, dtype=np.int64)
 
 
 def read_midi(midi_file: MidiFile) -> List[Event]:
@@ -337,10 +346,7 @@ def read_midi(midi_file: MidiFile) -> List[Event]:
     for tick, message in messages:
         if message.type == "note_on" or message.type == "note_off":
             if message.channel == 9:
-                if (
-                    message.type == "note_off"
-                    or message.velocity == 0
-                ):
+                if message.type == "note_off" or message.velocity == 0:
                     continue
                 program = None
                 note = None
@@ -414,7 +420,7 @@ def write_midi(event_list: List[Event]) -> MidiFile:
                 channel=channel,
                 note=note,
                 velocity=64 if event.type == MessageType.NOTE_ON else 0,
-                time=(event.tick - prev_tick) * ticks_per_beat / 120,
+                time=round((event.tick - prev_tick) * ticks_per_beat / 120),
             )
         )
         prev_tick = event.tick

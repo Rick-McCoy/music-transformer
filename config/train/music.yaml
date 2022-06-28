@@ -7,6 +7,7 @@ early_stop: True
 effective_batch_size: -1
 fast_dev_run: False
 gpus: -1
+ignore_runtime_error: False
 limit_batches: 1.0
 lr: 0.0001
 max_epochs: 1000
