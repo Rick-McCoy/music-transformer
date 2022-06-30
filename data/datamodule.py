@@ -35,10 +35,11 @@ class MusicDataset(Dataset):
                 constant_values=0,
             )
         random_index = random.randint(0, data.shape[0] - self.length)
-        on_notes = self.tokenizer.determine_on_notes(data[:random_index])
-        return np.concatenate(
-            [on_notes, data[random_index : random_index + self.length - on_notes.shape[0]]]
-        )
+        prefix = data[:random_index]
+        slice_data = data[random_index : random_index + self.length]
+        on_notes = self.tokenizer.determine_on_notes(prefix)
+        assert on_notes.shape[0] < self.length
+        return np.concatenate([on_notes, slice_data])[:self.length]
 
     def __len__(self):
         return len(self.path_list)

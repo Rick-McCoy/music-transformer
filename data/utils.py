@@ -292,36 +292,26 @@ class Tokenizer:
     def determine_on_notes(self, tokens: ndarray) -> ndarray:
         on_notes = np.zeros((self.num_program, self.num_note), dtype=bool)
         on_drums = np.zeros((self.num_drum,), dtype=bool)
+        on_drums[
+            tokens[(tokens >= self.program_limit) & (tokens < self.drum_limit)]
+            - self.program_limit
+        ] = True
+
         program = 0
-        cur_on_off = MessageType.NOTE_ON
         for token in tokens:
-            if token < self.special_limit:
-                if token == self.note_on:
-                    cur_on_off = MessageType.NOTE_ON
-                if token == self.note_off:
-                    cur_on_off = MessageType.NOTE_OFF
-            elif token < self.program_limit:
+            if self.special_limit <= token < self.program_limit:
                 program = token - self.special_limit
-            elif token < self.drum_limit:
-                drum = token - self.program_limit
-                on_drums[drum] = True
-            elif token < self.note_limit:
+            elif self.drum_limit <= token < self.note_limit:
                 note = token - self.drum_limit
-                if cur_on_off == MessageType.NOTE_ON:
-                    on_notes[program, note] = True
-                else:
-                    on_notes[program, note] = False
+                on_notes[program, note] = ~on_notes[program, note]
 
         result = []
         for program in range(self.num_program):
             if np.any(on_notes[program]):
                 result.append(program + self.special_limit)
-                for note in range(self.num_note):
-                    if on_notes[program, note]:
-                        result.append(note + self.drum_limit)
-        for drum in range(self.num_drum):
-            if on_drums[drum]:
-                result.append(drum + self.program_limit)
+                result.extend(np.nonzero(on_notes[program])[0] + self.drum_limit)
+
+        result.extend(np.nonzero(on_drums)[0] + self.program_limit)
 
         if result:
             result.append(self.tie)

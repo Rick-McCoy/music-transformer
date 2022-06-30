@@ -1,8 +1,23 @@
+import copy
+
+import torch
 from torch import Tensor, nn
 
 from model.embedding import Embedding
 from model.pos_encoding import PositionalEncoding
 
+
+class CheckpointEncoder(nn.Module):
+    def __init__(self, layer: nn.Module, num_layers: int, norm: nn.Module):
+        super().__init__()
+        self.layers = nn.ModuleList([copy.deepcopy(layer) for _ in range(num_layers)])
+        self.num_layers = num_layers
+        self.norm = norm
+
+    def forward(self, data: Tensor, mask: Tensor) -> Tensor:
+        for layer in self.layers:
+            data = torch.utils.checkpoint.checkpoint(layer, data, mask)
+        return data
 
 class Transformer(nn.Module):
     def __init__(
@@ -29,7 +44,7 @@ class Transformer(nn.Module):
         mask = nn.Transformer.generate_square_subsequent_mask(data_len)
         self.register_buffer("mask", mask)
         self.mask: Tensor
-        self.encoder = nn.TransformerEncoder(
+        self.encoder = CheckpointEncoder(
             nn.TransformerEncoderLayer(
                 d_model=d_model,
                 nhead=nhead,
