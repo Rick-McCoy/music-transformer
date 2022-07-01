@@ -11,13 +11,13 @@ class CheckpointEncoder(nn.Module):
     def __init__(self, layer: nn.Module, num_layers: int, norm: nn.Module):
         super().__init__()
         self.layers = nn.ModuleList([copy.deepcopy(layer) for _ in range(num_layers)])
-        self.num_layers = num_layers
         self.norm = norm
 
     def forward(self, data: Tensor, mask: Tensor) -> Tensor:
         for layer in self.layers:
             data = torch.utils.checkpoint.checkpoint(layer, data, mask)
-        return data
+        return self.norm(data)
+
 
 class Transformer(nn.Module):
     def __init__(
