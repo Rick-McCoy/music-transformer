@@ -233,7 +233,7 @@ class Tokenizer:
                 token_list.append(self.tick_to_token(min(tick_delta - 1, self.num_tick - 1)))
                 tick_delta -= self.num_tick
             prev_tick = event.tick
-            if event.type != prev_on_off:
+            if event.type is not None and event.type != prev_on_off:
                 token_list.append(self.type_to_token(event.type))
                 prev_on_off = event.type
             if event.program is not None and event.program != prev_program:
@@ -306,10 +306,10 @@ class Tokenizer:
                 on_notes[program, note] = ~on_notes[program, note]
 
         result = []
-        for program in range(self.num_program):
-            if np.any(on_notes[program]):
+        for program, program_on_note in enumerate(on_notes):
+            if np.any(program_on_note):
                 result.append(program + self.special_limit)
-                result.extend(np.nonzero(on_notes[program])[0] + self.drum_limit)
+                result.extend(np.where(program_on_note)[0] + self.drum_limit)
 
         result.extend(np.nonzero(on_drums)[0] + self.program_limit)
 

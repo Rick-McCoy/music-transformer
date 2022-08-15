@@ -17,7 +17,7 @@ if __name__ == "__main__":
     parser.add_argument("--nhead", type=int)
     parser.add_argument("--num_layers", type=int)
     args = parser.parse_args()
-    wandb.init(config=args)
+    wandb.init(config=args)  # type: ignore
     config = wandb.config
     with initialize(config_path="config", version_base=None):
         segments = round(math.sqrt(config.num_layers))

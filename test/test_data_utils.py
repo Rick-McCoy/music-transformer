@@ -33,10 +33,12 @@ class TestDataUtils(unittest.TestCase):
                 prev_tick = event.tick
                 if event.program is None:
                     self.assertIsNone(event.note)
+                    assert event.drum is not None
                     self.assertLess(event.drum, self.cfg.num_drum)
                     self.assertEqual(event.type, MessageType.NOTE_ON)
                 else:
                     self.assertLess(event.program, self.cfg.num_program)
+                    assert event.note is not None
                     self.assertLess(event.note, self.cfg.num_note)
                     self.assertIsNone(event.drum)
 

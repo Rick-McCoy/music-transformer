@@ -29,12 +29,12 @@ class TestPositionalEncoding(unittest.TestCase):
             torch.arange(0, self.cfg.d_model, 2) * (-math.log(10000.0) / self.cfg.d_model)
         )
         self.assertAlmostEqual(
-            torch.sum(torch.abs(output[0, :, 0::2] - torch.sin(position))),
+            torch.sum(torch.abs(output[0, :, 0::2] - torch.sin(position))).item(),
             0.0,
             places=4,
         )
         self.assertAlmostEqual(
-            torch.sum(torch.abs(output[0, :, 1::2] - torch.cos(position))),
+            torch.sum(torch.abs(output[0, :, 1::2] - torch.cos(position))).item(),
             0.0,
             places=4,
         )

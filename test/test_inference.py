@@ -20,6 +20,7 @@ class TestInference(unittest.TestCase):
         self.assertEqual(output_2, torch.LongTensor([0]))
         logits_3 = torch.zeros(10, dtype=torch.float32)
         random_index = torch.randint(0, 10, (1,)).item()
+        assert isinstance(random_index, int)
         logits_3[random_index] = 1000
         output_3 = top_p_sampling(logits_3, prob=0.9)
         self.assertEqual(output_3, torch.LongTensor([random_index]))

@@ -63,14 +63,14 @@ def top_p_sampling(logits: Tensor, prob: float = 0.9) -> Tensor:
 
 
 @hydra.main(config_path="config", config_name="inference", version_base=None)
-def main(cfg: DictConfig = None) -> None:
+def main(cfg: DictConfig) -> None:
     custom_cfg = CustomConfig(cfg)
     datamodule = MusicDataModule(custom_cfg)
 
     if custom_cfg.best_checkpoint:
         best_checkpoint = find_best_checkpoint(custom_cfg.checkpoint_dir)
         print(f"Loading checkpoint {best_checkpoint}")
-        model = MusicModel.load_from_checkpoint(best_checkpoint)
+        model = MusicModel.load_from_checkpoint(str(best_checkpoint))
     elif custom_cfg.checkpoint_path:
         print(f"Loading checkpoint {custom_cfg.checkpoint_path}")
         model = MusicModel.load_from_checkpoint(custom_cfg.checkpoint_path)
@@ -106,4 +106,4 @@ def main(cfg: DictConfig = None) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main()  # pylint: disable=no-value-for-parameter

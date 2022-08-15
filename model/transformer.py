@@ -1,7 +1,7 @@
 import copy
 
-import torch
 from torch import Tensor, nn
+from torch.utils import checkpoint
 
 from model.embedding import Embedding
 from model.pos_encoding import PositionalEncoding
@@ -15,7 +15,7 @@ class CheckpointEncoder(nn.Module):
 
     def forward(self, data: Tensor, mask: Tensor) -> Tensor:
         for layer in self.layers:
-            data = torch.utils.checkpoint.checkpoint(layer, data, mask)
+            data = checkpoint.checkpoint(layer, data, mask)
         return self.norm(data)
 
 
@@ -54,7 +54,7 @@ class Transformer(nn.Module):
                 norm_first=True,
             ),
             num_layers=num_layers,
-            norm=nn.LayerNorm((d_model,)),
+            norm=nn.LayerNorm(d_model),
         )
         self.linear = nn.Linear(
             in_features=d_model,

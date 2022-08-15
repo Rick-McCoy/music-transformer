@@ -16,7 +16,7 @@ from data.utils import Tokenizer, read_midi
 
 
 class MusicDataset(Dataset):
-    def __init__(self, cfg: CustomConfig, path_list: List[str], process_dir: str) -> None:
+    def __init__(self, cfg: CustomConfig, path_list: List[str], process_dir: Path) -> None:
         super().__init__()
         self.cfg = cfg
         self.tokenizer = Tokenizer(cfg)
@@ -39,7 +39,7 @@ class MusicDataset(Dataset):
         slice_data = data[random_index : random_index + self.length]
         on_notes = self.tokenizer.determine_on_notes(prefix)
         assert on_notes.shape[0] < self.length
-        return np.concatenate([on_notes, slice_data])[:self.length]
+        return np.concatenate([on_notes, slice_data])[: self.length]
 
     def __len__(self):
         return len(self.path_list)
@@ -103,6 +103,7 @@ class MusicDataModule(LightningDataModule):
             self.test_dataset = MusicDataset(self.cfg, test_path_list, process_dir)
 
     def train_dataloader(self) -> DataLoader:
+        assert self.train_dataset is not None
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
@@ -112,6 +113,7 @@ class MusicDataModule(LightningDataModule):
         )
 
     def val_dataloader(self) -> DataLoader:
+        assert self.val_dataset is not None
         return DataLoader(
             self.val_dataset,
             batch_size=self.batch_size,
@@ -121,6 +123,7 @@ class MusicDataModule(LightningDataModule):
         )
 
     def test_dataloader(self) -> DataLoader:
+        assert self.test_dataset is not None
         return DataLoader(
             self.test_dataset,
             batch_size=self.batch_size,

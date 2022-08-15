@@ -21,7 +21,7 @@ from model.model import MusicModel
 
 
 @hydra.main(config_path="config", config_name="config", version_base=None)
-def main(cfg: DictConfig = None) -> None:
+def main(cfg: DictConfig) -> None:
     """
     The main function.
     To run in another file, initialize a hydra config and call main(cfg).
@@ -62,6 +62,7 @@ def main(cfg: DictConfig = None) -> None:
                 steps_per_trial=10,
                 max_trials=max_trials,
             )
+            assert batch_size is not None
             datamodule.batch_size = batch_size
         except RuntimeError:
             return
@@ -98,7 +99,10 @@ def main(cfg: DictConfig = None) -> None:
             datamodule=datamodule,
             max_lr=0.01,
         )
-        custom_cfg.learning_rate = lr_finder.suggestion()
+        assert lr_finder is not None
+        learning_rate = lr_finder.suggestion()
+        assert isinstance(learning_rate, float)
+        custom_cfg.learning_rate = learning_rate
         print(f"Learning rate: {custom_cfg.learning_rate}")
         del lr_model, lr_trainer
 
@@ -150,7 +154,7 @@ def main(cfg: DictConfig = None) -> None:
         limit_val_batches=custom_cfg.limit_batches,
         limit_test_batches=custom_cfg.limit_batches,
         log_every_n_steps=1,
-        logger=[logger],
+        logger=[logger] if logger is not None else False,
         max_epochs=custom_cfg.max_epochs,
         max_time=max_time,
         num_sanity_val_steps=2,
@@ -166,4 +170,4 @@ def main(cfg: DictConfig = None) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main()  # pylint: disable=no-value-for-parameter
