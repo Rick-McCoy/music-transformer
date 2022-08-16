@@ -28,12 +28,10 @@ class MusicDataset(Dataset):
         path = Path(self.process_dir, self.path_list[index]).with_suffix(".npy")
         data: ndarray = np.load(path).astype(np.int64)
         if self.length > data.shape[0]:
-            return np.pad(
-                data,
-                (0, self.length - data.shape[0]),
-                mode="constant",
-                constant_values=0,
-            )
+            on_notes = self.tokenizer.determine_on_notes(data)
+            data = np.concatenate([on_notes, data], axis=0)[: self.length]
+            pad_length = self.length - data.shape[0]
+            return np.pad(data, (0, pad_length), mode="constant", constant_values=0)
         random_index = random.randint(0, data.shape[0] - self.length)
         prefix = data[:random_index]
         slice_data = data[random_index : random_index + self.length]

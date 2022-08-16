@@ -1,6 +1,6 @@
 from enum import IntEnum
 from operator import itemgetter
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 import numpy as np
 from mido import Message, MidiFile
@@ -184,7 +184,7 @@ class Tokenizer:
             return f"TICK_{token - self.note_limit + 1:03d}"
         raise InvalidTokenError(token)
 
-    def tokens_to_string(self, tokens: List[int]) -> str:
+    def tokens_to_string(self, tokens: Iterable[int]) -> str:
         result = ""
         line = ["", "", "", ""]
 
@@ -230,7 +230,7 @@ class Tokenizer:
         for event in event_list:
             tick_delta = event.tick - prev_tick
             while tick_delta > 0:
-                token_list.append(self.tick_to_token(min(tick_delta - 1, self.num_tick - 1)))
+                token_list.append(self.tick_to_token(min(tick_delta, self.num_tick) - 1))
                 tick_delta -= self.num_tick
             prev_tick = event.tick
             if event.type is not None and event.type != prev_on_off:
@@ -290,6 +290,11 @@ class Tokenizer:
         return event_list
 
     def determine_on_notes(self, tokens: ndarray) -> ndarray:
+        programs = np.zeros(self.num_program, dtype=bool)
+        programs[
+            tokens[(tokens >= self.special_limit) & (tokens < self.program_limit)]
+            - self.special_limit
+        ] = True
         on_notes = np.zeros((self.num_program, self.num_note), dtype=bool)
         on_drums = np.zeros((self.num_drum,), dtype=bool)
         on_drums[
@@ -305,16 +310,13 @@ class Tokenizer:
                 note = token - self.drum_limit
                 on_notes[program, note] = ~on_notes[program, note]
 
-        result = []
-        for program, program_on_note in enumerate(on_notes):
-            if np.any(program_on_note):
-                result.append(program + self.special_limit)
-                result.extend(np.where(program_on_note)[0] + self.drum_limit)
+        result: List[int] = list(np.where(programs)[0] + self.special_limit)
+        for program in np.where(programs)[0]:
+            if np.any(on_notes[program]):
+                result.extend(np.where(on_notes[program])[0] + self.drum_limit)
 
         result.extend(np.nonzero(on_drums)[0] + self.program_limit)
-
-        if result:
-            result.append(self.tie)
+        result.append(self.tie)
 
         return np.array(result, dtype=np.int64)
 

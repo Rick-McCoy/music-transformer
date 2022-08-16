@@ -51,7 +51,8 @@ class MusicModel(LightningModule):
     def forward(self, data: Tensor) -> Tensor:  # pylint: disable=arguments-differ
         return self.transformer(data)
 
-    def training_step(self, batch: Tensor) -> Tensor:  # pylint: disable=arguments-differ
+    def training_step(self, *args, **kwargs) -> Tensor:  # pylint: disable=unused-argument
+        batch = args[0]
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         if self.is_training:
@@ -60,7 +61,8 @@ class MusicModel(LightningModule):
             self.log("train/acc", self.acc)
         return loss
 
-    def validation_step(self, batch: Tensor) -> Tensor:  # pylint: disable=arguments-differ
+    def validation_step(self, *args, **kwargs) -> Tensor:  # pylint: disable=unused-argument
+        batch = args[0]
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         self.acc(output, batch[:, 1:])
@@ -68,7 +70,8 @@ class MusicModel(LightningModule):
         self.log("val/acc", self.acc)
         return loss
 
-    def test_step(self, batch: Tensor) -> Tensor:  # pylint: disable=arguments-differ
+    def test_step(self, *args, **kwargs) -> Tensor:  # pylint: disable=unused-argument
+        batch = args[0]
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         self.acc(output, batch[:, 1:])
