@@ -188,38 +188,33 @@ class Tokenizer:
         result = ""
         line = ["", "", "", ""]
 
-        def flush_line(result: str, line: List[str]):
-            result += f"\n{line[0]:8s} {str(line[1]):8s} {line[2]:8s} {line[3]:8s}"
-            line = ["", "", "", ""]
+        def update_result(result: str, line: List[str], string: str, index: int):
+            if line[index]:
+                result += "\n| " + " | ".join(f"{s:8s}" for s in line) + " |"
+                line = ["", "", "", ""]
+            line[index] = string
             return result, line
 
         for token in tokens:
             string = self.token_to_string(token)
             if token < self.special_limit:
-                if token == self.begin:
-                    result += string
-                elif token == self.end or token == self.tie:
-                    result += "\n" + string
-                elif token == self.pad:
-                    result += " " + string
-                elif token == self.note_on or token == self.note_off:
-                    if line[1]:
-                        result, line = flush_line(result, line)
-                    line[1] = string
+                if token in (self.pad, self.begin, self.end, self.tie):
+                    if any(line):
+                        result += "\n| " + " | ".join(f"{s:8s}" for s in line) + " |"
+                    line = [string, "", "", ""]
+                elif token in (self.note_on, self.note_off):
+                    result, line = update_result(result, line, string, 1)
             elif token < self.program_limit:
-                if line[2]:
-                    result, line = flush_line(result, line)
-                line[2] = string
+                result, line = update_result(result, line, string, 2)
             elif token < self.note_limit:
-                if line[3]:
-                    result, line = flush_line(result, line)
-                line[3] = string
-                result, line = flush_line(result, line)
+                result, line = update_result(result, line, string, 3)
             elif token < self.tick_limit:
-                if line[0]:
-                    result, line = flush_line(result, line)
-                line[0] = string
-        result, _ = flush_line(result, line)
+                result, line = update_result(result, line, string, 0)
+            else:
+                raise InvalidTokenError(token)
+
+        if any(line):
+            result += f"\n| {line[0]:8s} | {str(line[1]):8s} | {line[2]:8s} | {line[3]:8s} |"
         return result
 
     def tokenize(self, event_list: List[Event]) -> ndarray:
