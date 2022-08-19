@@ -43,7 +43,6 @@ def main(cfg: DictConfig) -> None:
             nhead=custom_cfg.nhead,
             num_layers=custom_cfg.num_layers,
             num_tokens=custom_cfg.num_tokens,
-            segments=custom_cfg.segments,
             is_training=False,
         )
         batch_trainer = Trainer(
@@ -83,7 +82,6 @@ def main(cfg: DictConfig) -> None:
             nhead=custom_cfg.nhead,
             num_layers=custom_cfg.num_layers,
             num_tokens=custom_cfg.num_tokens,
-            segments=custom_cfg.segments,
             is_training=False,
         )
         lr_trainer = Trainer(
@@ -115,7 +113,6 @@ def main(cfg: DictConfig) -> None:
         nhead=custom_cfg.nhead,
         num_layers=custom_cfg.num_layers,
         num_tokens=custom_cfg.num_tokens,
-        segments=custom_cfg.segments,
     )
 
     callbacks = []

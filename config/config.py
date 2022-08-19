@@ -13,9 +13,7 @@ class CustomConfig:
     See configuration files under config/ for more information regarding individual parameters.
     """
 
-    def __init__(self, cfg: DictConfig = None):
-        if cfg is None:
-            raise ValueError("Initialize with a hydra config.")
+    def __init__(self, cfg: DictConfig):
         self.cfg = cfg
 
         self.checkpoint_dir = Path(self.cfg.data.checkpoint_dir)
@@ -38,7 +36,6 @@ class CustomConfig:
         self.num_tokens: int = (
             self.num_special + self.num_program + self.num_drum + self.num_note + self.num_tick
         )
-        self.segments: int = self.cfg.model.segments
 
         self.acc: int = self.cfg.train.acc
         self.auto_batch: bool = self.cfg.train.auto_batch

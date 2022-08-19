@@ -92,11 +92,11 @@ def main(cfg: DictConfig) -> None:
         midi_file.save(filename="input.mid")
         with open("input_tokens.txt", mode="w", encoding="utf-8") as file:
             file.write(tokenizer.tokens_to_string(tokens))
-        data = batch[:1, 1:].cuda()
+        data = batch[:1].cuda()
         for _ in tqdm(range(custom_cfg.data_len)):
             output = model(data)[0, :, -1]
             pred = top_p_sampling(output, prob=0.9).unsqueeze(dim=0)
-            data = torch.cat([data, pred], dim=-1)[:, 1:]
+            data = torch.cat([data, pred], dim=-1)
         tokens = data[0].detach().cpu().numpy()
         event_list = tokenizer.tokens_to_events(tokens)
         midi_file = write_midi(event_list)

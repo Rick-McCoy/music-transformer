@@ -1,5 +1,4 @@
 import argparse
-import math
 
 import wandb
 from hydra import compose, initialize
@@ -20,7 +19,6 @@ if __name__ == "__main__":
     wandb.init(config=args)  # type: ignore
     config = wandb.config
     with initialize(config_path="config", version_base=None):
-        segments = round(math.sqrt(config.num_layers))
         cfg = compose(
             config_name="config",
             overrides=[
@@ -37,7 +35,6 @@ if __name__ == "__main__":
                 f"model.feed_forward={config.feed_forward}",
                 f"model.nhead={config.nhead}",
                 f"model.num_layers={config.num_layers}",
-                f"model.segments={segments}",
             ],
         )
         main(cfg)

@@ -29,9 +29,9 @@ class Transformer(nn.Module):
         nhead: int,
         num_layers: int,
         num_tokens: int,
-        segments: int,
     ) -> None:
         super().__init__()
+        self.data_len = data_len
         self.embedding = Embedding(
             d_model=d_model,
             num_tokens=num_tokens,
@@ -60,12 +60,15 @@ class Transformer(nn.Module):
             in_features=d_model,
             out_features=num_tokens,
         )
-        self.segments = segments
 
     def forward(self, data: Tensor) -> Tensor:
-        embedded = self.embedding(data)
-        encoded = self.pos_encoding(embedded)
-        normalized = self.encoder(encoded, mask=self.mask)
+        embedded: Tensor = self.embedding(data)
+        encoded: Tensor = self.pos_encoding(embedded)
+        if encoded.shape[1] != self.data_len:
+            mask = nn.Transformer.generate_square_subsequent_mask(encoded.shape[1])
+        else:
+            mask = self.mask
+        normalized: Tensor = self.encoder(encoded, mask)
         projected: Tensor = self.linear(normalized)
         output = projected.permute([0, -1] + list(range(1, projected.ndim - 1)))
         return output

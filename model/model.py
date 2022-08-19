@@ -27,7 +27,6 @@ class MusicModel(LightningModule):
         nhead: int,
         num_layers: int,
         num_tokens: int,
-        segments: int,
         is_training: bool = True,
     ) -> None:
         super().__init__()
@@ -41,7 +40,6 @@ class MusicModel(LightningModule):
             nhead=nhead,
             num_layers=num_layers,
             num_tokens=num_tokens,
-            segments=segments,
         )
         self.loss = CrossEntropy()
         self.acc = torchmetrics.Accuracy(top_k=1, ignore_index=0, mdmc_average="global")

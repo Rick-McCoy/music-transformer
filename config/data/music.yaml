@@ -1,4 +1,4 @@
-checkpoint_dir: "./checkpoint"
+checkpoint_dir: "./checkpoints"
 data_dir: "./data/midi"
 file_dir: "./data"
 log_dir: "./logs"

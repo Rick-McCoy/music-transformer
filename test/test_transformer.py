@@ -20,7 +20,6 @@ class TestTransformer(unittest.TestCase):
                 nhead=self.cfg.nhead,
                 num_layers=self.cfg.num_layers,
                 num_tokens=self.cfg.num_tokens,
-                segments=self.cfg.segments,
             )
 
     def test_transformer(self):
