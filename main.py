@@ -2,10 +2,12 @@
     The main file of the project.
     This file initializes the model and data, and then runs the training.
 """
+import gc
 import math
 import traceback
 
 import hydra
+import torch
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import (
     DeviceStatsMonitor,
@@ -13,6 +15,7 @@ from pytorch_lightning.callbacks import (
     ModelCheckpoint,
 )
 from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.profiler import AdvancedProfiler
 from pytorch_lightning.trainer import Trainer
 
 from config.config import CustomConfig
@@ -54,7 +57,10 @@ def main(cfg: DictConfig) -> None:
             precision=16,
         )
         try:
-            max_trials = round(math.log2(custom_cfg.effective_batch_size / 2))
+            if custom_cfg.effective_batch_size > 0:
+                max_trials = round(math.log2(custom_cfg.effective_batch_size / 2))
+            else:
+                max_trials = 25
             batch_size = batch_trainer.tuner.scale_batch_size(
                 model=batch_model,
                 datamodule=datamodule,
@@ -66,6 +72,8 @@ def main(cfg: DictConfig) -> None:
         except RuntimeError:
             return
         del batch_model, batch_trainer
+        torch.cuda.empty_cache()
+        gc.collect()
 
     if custom_cfg.effective_batch_size > 0:
         accumulate = custom_cfg.effective_batch_size // batch_size
@@ -103,6 +111,8 @@ def main(cfg: DictConfig) -> None:
         custom_cfg.learning_rate = learning_rate
         print(f"Learning rate: {custom_cfg.learning_rate}")
         del lr_model, lr_trainer
+        torch.cuda.empty_cache()
+        gc.collect()
 
     model = MusicModel(
         learning_rate=custom_cfg.learning_rate,
@@ -133,6 +143,11 @@ def main(cfg: DictConfig) -> None:
     if custom_cfg.early_stop:
         callbacks.append(EarlyStopping(monitor="val/loss", mode="min", patience=10))
 
+    if custom_cfg.profile:
+        profiler = AdvancedProfiler(dirpath=custom_cfg.profile_dir, filename="perf_logs")
+    else:
+        profiler = None
+
     custom_cfg.log_dir.mkdir(parents=True, exist_ok=True)
     if custom_cfg.wandb:
         logger = WandbLogger(save_dir=str(custom_cfg.log_dir))
@@ -156,6 +171,7 @@ def main(cfg: DictConfig) -> None:
         max_time=max_time,
         num_sanity_val_steps=2,
         precision=16,
+        profiler=profiler,
     )
 
     error_tuple = (RuntimeError,) if custom_cfg.ignore_runtime_error else tuple()

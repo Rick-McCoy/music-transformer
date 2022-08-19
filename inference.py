@@ -37,7 +37,7 @@ def top_p_sampling(logits: Tensor, prob: float = 0.9) -> Tensor:
     or equal to `prob`, and ignore the rest.
 
     Args:
-        logits: Tensor of logits (required).
+        logits: 1D Tensor of logits (required).
         prob: Probability of sampling (default: 0.9).
 
     Returns:
@@ -47,6 +47,8 @@ def top_p_sampling(logits: Tensor, prob: float = 0.9) -> Tensor:
         - logits: (num_classes, )
         - output: (1, )
     """
+    # Check inputs
+    assert logits.dim() == 1
     # Get probabilities from logits
     probs = F.softmax(logits, dim=-1)
     # Sort the probabilities in descending order

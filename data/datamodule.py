@@ -31,7 +31,8 @@ class MusicDataset(Dataset):
             on_notes = self.tokenizer.determine_on_notes(data)
             data = np.concatenate([on_notes, data], axis=0)[: self.length]
             pad_length = self.length - data.shape[0]
-            return np.pad(data, (0, pad_length), mode="constant", constant_values=0)
+            pad_value = self.tokenizer.pad
+            return np.pad(data, (0, pad_length), mode="constant", constant_values=pad_value)
         random_index = random.randint(0, data.shape[0] - self.length)
         prefix = data[:random_index]
         slice_data = data[random_index : random_index + self.length]
@@ -58,7 +59,6 @@ class MusicDataModule(LightningDataModule):
         filenames = []
         tokenizer = Tokenizer(self.cfg)
         for path in tqdm(self.cfg.data_dir.glob("**/*.mid")):
-            path: Path
             relative_path = path.relative_to(self.cfg.data_dir)
             filename = self.cfg.process_dir / relative_path.with_suffix(".npy")
             if filename.exists():
@@ -89,13 +89,13 @@ class MusicDataModule(LightningDataModule):
         random.shuffle(path_list)
         split_length = int(len(path_list) * 0.1)
         train_len = len(path_list) - split_length * 2
-        full_path_list = path_list[:-split_length]
+        train_val_path_list = path_list[:-split_length]
         test_path_list = path_list[-split_length:]
         process_dir = self.cfg.process_dir
         if stage == "fit" or stage == "validate" or stage is None:
-            full_dataset = MusicDataset(self.cfg, full_path_list, process_dir)
+            train_val_dataset = MusicDataset(self.cfg, train_val_path_list, process_dir)
             self.train_dataset, self.val_dataset = random_split(
-                full_dataset, [train_len, split_length]
+                train_val_dataset, [train_len, split_length]
             )
         if stage == "test" or stage == "predict" or stage is None:
             self.test_dataset = MusicDataset(self.cfg, test_path_list, process_dir)

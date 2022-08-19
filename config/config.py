@@ -21,6 +21,7 @@ class CustomConfig:
         self.file_dir = Path(self.cfg.data.file_dir)
         self.log_dir = Path(self.cfg.data.log_dir)
         self.process_dir = Path(self.cfg.data.process_dir)
+        self.profile_dir = Path(self.cfg.data.profile_dir)
 
         self.d_model: int = self.cfg.model.d_model
         self.data_len: int = self.cfg.model.data_len
@@ -53,6 +54,7 @@ class CustomConfig:
         self.max_time: str = self.cfg.train.max_time
         self.monitor: bool = self.cfg.train.monitor
         self.num_workers: int = self.cfg.train.num_workers
+        self.profile: bool = self.cfg.train.profile
         self.wandb: bool = self.cfg.train.wandb
 
         if hasattr(self.cfg, "best_checkpoint"):
