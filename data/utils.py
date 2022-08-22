@@ -247,6 +247,9 @@ class Tokenizer:
         cur_tick = 0
         cur_program = 0
         cur_on_off = MessageType.NOTE_OFF
+        if self.tie in tokens:
+            tie_index = np.where(tokens == self.tie)[0][0]
+            tokens = tokens[tie_index + 1 :]
         for token in tokens:
             if token < self.special_limit:
                 if token == self.end:
@@ -305,12 +308,15 @@ class Tokenizer:
                 note = token - self.drum_limit
                 on_notes[program, note] = ~on_notes[program, note]
 
-        result: List[int] = list(np.where(programs)[0] + self.special_limit)
+        result: List[int] = []
         for program in np.where(programs)[0]:
-            if np.any(on_notes[program]):
-                result.extend(np.where(on_notes[program])[0] + self.drum_limit)
+            result.append(self.program_to_token(program))
+            for note in np.where(on_notes[program])[0]:
+                result.append(self.note_to_token(note))
 
-        result.extend(np.nonzero(on_drums)[0] + self.program_limit)
+        for drum in np.where(on_drums)[0]:
+            result.append(self.drum_to_token(drum))
+
         result.append(self.tie)
 
         return np.array(result, dtype=np.int64)

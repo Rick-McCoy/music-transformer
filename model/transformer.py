@@ -64,10 +64,11 @@ class Transformer(nn.Module):
     def forward(self, data: Tensor) -> Tensor:
         embedded: Tensor = self.embedding(data)
         encoded: Tensor = self.pos_encoding(embedded)
-        if encoded.shape[1] != self.data_len:
+        if encoded.shape[1] > self.data_len:
             mask = nn.Transformer.generate_square_subsequent_mask(encoded.shape[1])
+            mask = mask.to(encoded.device)
         else:
-            mask = self.mask
+            mask = self.mask[: encoded.shape[1], : encoded.shape[1]]
         normalized: Tensor = self.encoder(encoded, mask)
         projected: Tensor = self.linear(normalized)
         output = projected.permute([0, -1] + list(range(1, projected.ndim - 1)))
