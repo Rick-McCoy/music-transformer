@@ -5,6 +5,7 @@
 import gc
 import math
 import traceback
+from typing import Tuple
 
 import hydra
 import torch
@@ -15,12 +16,80 @@ from pytorch_lightning.callbacks import (
     ModelCheckpoint,
 )
 from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.profiler import AdvancedProfiler
+from pytorch_lightning.profiler import PyTorchProfiler
 from pytorch_lightning.trainer import Trainer
 
 from config.config import CustomConfig
 from data.datamodule import MusicDataModule
 from model.model import MusicModel
+
+
+def get_tune_model(cfg: CustomConfig) -> Tuple[MusicModel, Trainer]:
+    devices = "auto" if cfg.gpus == -1 else cfg.gpus
+    batch_model = MusicModel(
+        learning_rate=cfg.learning_rate,
+        data_len=cfg.data_len,
+        d_model=cfg.d_model,
+        dropout=cfg.dropout,
+        feed_forward=cfg.feed_forward,
+        nhead=cfg.nhead,
+        num_layers=cfg.num_layers,
+        num_tokens=cfg.num_tokens,
+        is_training=False,
+    )
+    batch_trainer = Trainer(
+        accelerator="auto",
+        accumulate_grad_batches=cfg.acc,
+        detect_anomaly=True,
+        devices=devices,
+        max_epochs=cfg.max_epochs,
+        precision=16,
+    )
+
+    return batch_model, batch_trainer
+
+
+def tune_batch_size(cfg: CustomConfig) -> int:
+    datamodule = MusicDataModule(cfg=cfg)
+    cfg.acc = cfg.acc if cfg.acc > 1 else 8
+    batch_model, batch_trainer = get_tune_model(cfg)
+    if cfg.effective_batch_size > 0:
+        max_trials = round(math.log2(cfg.effective_batch_size / 2))
+    else:
+        max_trials = 25
+    batch_size = batch_trainer.tuner.scale_batch_size(
+        model=batch_model,
+        datamodule=datamodule,
+        steps_per_trial=10,
+        max_trials=max_trials,
+    )
+    assert batch_size is not None
+    del batch_model, batch_trainer, datamodule
+    gc.collect()
+    with torch.no_grad():
+        torch.cuda.empty_cache()
+
+    return batch_size
+
+
+def tune_learning_rate(cfg: CustomConfig) -> float:
+    datamodule = MusicDataModule(cfg=cfg)
+    cfg.acc = cfg.acc if cfg.acc > 1 else 8
+    lr_model, lr_trainer = get_tune_model(cfg)
+    lr_finder = lr_trainer.tuner.lr_find(
+        model=lr_model,
+        datamodule=datamodule,
+        max_lr=0.01,
+    )
+    assert lr_finder is not None
+    learning_rate = lr_finder.suggestion()
+    assert isinstance(learning_rate, float)
+    del lr_model, lr_trainer, datamodule
+    gc.collect()
+    with torch.no_grad():
+        torch.cuda.empty_cache()
+
+    return learning_rate
 
 
 @hydra.main(config_path="config", config_name="config", version_base=None)
@@ -32,87 +101,25 @@ def main(cfg: DictConfig) -> None:
 
     # Initialize CustomConfig
     custom_cfg = CustomConfig(cfg)
-    datamodule = MusicDataModule(custom_cfg)
     devices = "auto" if custom_cfg.gpus == -1 else custom_cfg.gpus
 
-    batch_size = custom_cfg.batch_size
     if custom_cfg.auto_batch:
-        batch_model = MusicModel(
-            learning_rate=custom_cfg.learning_rate,
-            data_len=custom_cfg.data_len,
-            d_model=custom_cfg.d_model,
-            dropout=custom_cfg.dropout,
-            feed_forward=custom_cfg.feed_forward,
-            nhead=custom_cfg.nhead,
-            num_layers=custom_cfg.num_layers,
-            num_tokens=custom_cfg.num_tokens,
-            is_training=False,
-        )
-        batch_trainer = Trainer(
-            accelerator="auto",
-            accumulate_grad_batches=2,
-            detect_anomaly=True,
-            devices=devices,
-            max_epochs=custom_cfg.max_epochs,
-            precision=16,
-        )
         try:
-            if custom_cfg.effective_batch_size > 0:
-                max_trials = round(math.log2(custom_cfg.effective_batch_size / 2))
-            else:
-                max_trials = 25
-            batch_size = batch_trainer.tuner.scale_batch_size(
-                model=batch_model,
-                datamodule=datamodule,
-                steps_per_trial=10,
-                max_trials=max_trials,
-            )
-            assert batch_size is not None
-            datamodule.batch_size = batch_size
+            custom_cfg.batch_size = tune_batch_size(custom_cfg)
         except RuntimeError:
+            print("Model too large.")
             return
-        del batch_model, batch_trainer
-        torch.cuda.empty_cache()
-        gc.collect()
 
     if custom_cfg.effective_batch_size > 0:
-        accumulate = custom_cfg.effective_batch_size // batch_size
-    else:
-        accumulate = custom_cfg.acc
+        custom_cfg.acc = custom_cfg.effective_batch_size // custom_cfg.batch_size
 
     if custom_cfg.auto_lr:
-        lr_model = MusicModel(
-            learning_rate=custom_cfg.learning_rate,
-            data_len=custom_cfg.data_len,
-            d_model=custom_cfg.d_model,
-            dropout=custom_cfg.dropout,
-            feed_forward=custom_cfg.feed_forward,
-            nhead=custom_cfg.nhead,
-            num_layers=custom_cfg.num_layers,
-            num_tokens=custom_cfg.num_tokens,
-            is_training=False,
-        )
-        lr_trainer = Trainer(
-            accelerator="auto",
-            accumulate_grad_batches=accumulate,
-            detect_anomaly=True,
-            devices=devices,
-            max_epochs=custom_cfg.max_epochs,
-            precision=16,
-        )
-        lr_finder = lr_trainer.tuner.lr_find(
-            model=lr_model,
-            datamodule=datamodule,
-            max_lr=0.01,
-        )
-        assert lr_finder is not None
-        learning_rate = lr_finder.suggestion()
-        assert isinstance(learning_rate, float)
-        custom_cfg.learning_rate = learning_rate
-        print(f"Learning rate: {custom_cfg.learning_rate}")
-        del lr_model, lr_trainer
-        torch.cuda.empty_cache()
-        gc.collect()
+        try:
+            custom_cfg.learning_rate = tune_learning_rate(custom_cfg)
+            print(f"Learning rate: {custom_cfg.learning_rate}")
+        except RuntimeError:
+            print("Batch size too large.")
+            return
 
     model = MusicModel(
         learning_rate=custom_cfg.learning_rate,
@@ -124,6 +131,7 @@ def main(cfg: DictConfig) -> None:
         num_layers=custom_cfg.num_layers,
         num_tokens=custom_cfg.num_tokens,
     )
+    datamodule = MusicDataModule(cfg=custom_cfg)
 
     callbacks = []
     if custom_cfg.checkpoint:
@@ -144,7 +152,9 @@ def main(cfg: DictConfig) -> None:
         callbacks.append(EarlyStopping(monitor="val/loss", mode="min", patience=10))
 
     if custom_cfg.profile:
-        profiler = AdvancedProfiler(dirpath=custom_cfg.profile_dir, filename="perf_logs")
+        profiler = PyTorchProfiler(
+            dirpath=custom_cfg.profile_dir, filename="perf_logs", export_to_chrome=True
+        )
     else:
         profiler = None
 
@@ -157,7 +167,7 @@ def main(cfg: DictConfig) -> None:
 
     trainer = Trainer(
         accelerator="auto",
-        accumulate_grad_batches=accumulate,
+        accumulate_grad_batches=custom_cfg.acc,
         callbacks=callbacks,
         detect_anomaly=True,
         devices=devices,
