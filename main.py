@@ -79,9 +79,10 @@ def tune_learning_rate(cfg: CustomConfig) -> float:
     lr_finder = lr_trainer.tuner.lr_find(
         model=lr_model,
         datamodule=datamodule,
-        max_lr=0.01,
     )
     assert lr_finder is not None
+    fig = lr_finder.plot(suggest=True)
+    fig.savefig("lr_finder.png")
     learning_rate = lr_finder.suggestion()
     assert isinstance(learning_rate, float)
     del lr_model, lr_trainer, datamodule
