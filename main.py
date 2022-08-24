@@ -162,6 +162,7 @@ def main(cfg: DictConfig) -> None:
     custom_cfg.log_dir.mkdir(parents=True, exist_ok=True)
     if custom_cfg.wandb:
         logger = WandbLogger(save_dir=str(custom_cfg.log_dir))
+        logger.log_hyperparams({"effective_batch_size": custom_cfg.effective_batch_size})
     else:
         logger = None
     max_time = None if custom_cfg.max_time == "" else custom_cfg.max_time
