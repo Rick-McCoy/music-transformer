@@ -3,10 +3,10 @@
 """
 
 import torch
-import torchmetrics
 from pytorch_lightning import LightningModule
 from torch import Tensor
 
+from model.accuracy import SimpleAccuracy
 from model.loss import CrossEntropy
 from model.transformer import Transformer
 
@@ -42,7 +42,7 @@ class MusicModel(LightningModule):
             num_tokens=num_tokens,
         )
         self.loss = CrossEntropy()
-        self.acc = torchmetrics.Accuracy(top_k=1, ignore_index=0, mdmc_average="global")
+        self.acc = SimpleAccuracy()
         self.example_input_array = torch.zeros(1, data_len, dtype=torch.int64)
         self.is_training = is_training
 
@@ -53,28 +53,28 @@ class MusicModel(LightningModule):
         batch = args[0]
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
+        acc = self.acc(output, batch[:, 1:])
         if self.is_training:
-            self.acc(output, batch[:, 1:])
             self.log("train/loss", loss)
-            self.log("train/acc", self.acc)
+            self.log("train/acc", acc)
         return loss
 
     def validation_step(self, *args, **kwargs) -> Tensor:  # pylint: disable=unused-argument
         batch = args[0]
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
-        self.acc(output, batch[:, 1:])
+        acc = self.acc(output, batch[:, 1:])
         self.log("val/loss", loss)
-        self.log("val/acc", self.acc)
+        self.log("val/acc", acc)
         return loss
 
     def test_step(self, *args, **kwargs) -> Tensor:  # pylint: disable=unused-argument
         batch = args[0]
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
-        self.acc(output, batch[:, 1:])
+        acc = self.acc(output, batch[:, 1:])
         self.log("test/loss", loss)
-        self.log("test/acc", self.acc)
+        self.log("test/acc", acc)
         return loss
 
     def configure_optimizers(self):

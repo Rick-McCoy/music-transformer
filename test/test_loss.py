@@ -19,15 +19,13 @@ class TestLoss(unittest.TestCase):
         logit_1 = torch.ones(8, self.cfg.num_tokens, self.cfg.data_len)
         target_1 = torch.ones(8, self.cfg.data_len, dtype=torch.int64)
         self.assertAlmostEqual(
-            self.loss(logit_1, target_1).numpy(),
+            self.loss(logit_1, target_1).item(),
             np.log(self.cfg.num_tokens),
             places=4,
         )
         logit_2 = torch.full((8, self.cfg.num_tokens, self.cfg.data_len), -1e9)
         logit_2[torch.arange(8), torch.arange(8)] = 1e9
         target_2 = (
-            torch.arange(8, dtype=torch.int64)
-            .unsqueeze(dim=1)
-            .repeat((1, self.cfg.data_len))
+            torch.arange(8, dtype=torch.int64).unsqueeze(dim=1).repeat((1, self.cfg.data_len))
         )
-        self.assertAlmostEqual(self.loss(logit_2, target_2).numpy(), 0, places=4)
+        self.assertAlmostEqual(self.loss(logit_2, target_2).item(), 0, places=4)

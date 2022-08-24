@@ -151,3 +151,4 @@ onnx/
 temp.py
 wandb/
 *.ckpt
+profile/
