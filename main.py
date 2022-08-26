@@ -28,6 +28,7 @@ def get_tune_model(cfg: CustomConfig) -> Tuple[MusicModel, Trainer]:
     devices = "auto" if cfg.gpus == -1 else cfg.gpus
     batch_model = MusicModel(
         learning_rate=cfg.learning_rate,
+        weight_decay=cfg.weight_decay,
         data_len=cfg.data_len,
         d_model=cfg.d_model,
         dropout=cfg.dropout,
@@ -124,6 +125,7 @@ def main(cfg: DictConfig) -> None:
 
     model = MusicModel(
         learning_rate=custom_cfg.learning_rate,
+        weight_decay=custom_cfg.weight_decay,
         data_len=custom_cfg.data_len,
         d_model=custom_cfg.d_model,
         dropout=custom_cfg.dropout,

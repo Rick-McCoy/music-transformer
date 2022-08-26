@@ -20,6 +20,7 @@ class MusicModel(LightningModule):
     def __init__(
         self,
         learning_rate: float,
+        weight_decay: float,
         d_model: int,
         data_len: int,
         dropout: float,
@@ -32,6 +33,7 @@ class MusicModel(LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
         self.transformer = Transformer(
             d_model=d_model,
             data_len=data_len,
@@ -78,4 +80,9 @@ class MusicModel(LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(params=self.parameters(), lr=self.learning_rate, amsgrad=True)
+        return torch.optim.AdamW(
+            params=self.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.weight_decay,
+            amsgrad=True,
+        )

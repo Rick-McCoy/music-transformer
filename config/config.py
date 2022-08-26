@@ -56,6 +56,7 @@ class CustomConfig:
         self.num_workers: int = self.cfg.train.num_workers
         self.profile: bool = self.cfg.train.profile
         self.wandb: bool = self.cfg.train.wandb
+        self.weight_decay: float = self.cfg.train.weight_decay
 
         if hasattr(self.cfg, "best_checkpoint"):
             self.best_checkpoint: bool = self.cfg.best_checkpoint

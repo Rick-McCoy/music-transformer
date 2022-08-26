@@ -16,3 +16,4 @@ monitor: False
 num_workers: 12
 profile: False
 wandb: True
+weight_decay: 0.01
