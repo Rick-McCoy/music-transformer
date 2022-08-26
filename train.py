@@ -13,6 +13,7 @@ if __name__ == "__main__":
     parser.add_argument("--data_len", type=int)
     parser.add_argument("--dropout", type=float)
     parser.add_argument("--feed_forward", type=int)
+    parser.add_argument("--learning_rate", type=float)
     parser.add_argument("--nhead", type=int)
     parser.add_argument("--num_layers", type=int)
     args = parser.parse_args()
@@ -22,12 +23,14 @@ if __name__ == "__main__":
         cfg = compose(
             config_name="config",
             overrides=[
-                "train.auto_batch=True",
-                "train.auto_lr=True",
+                "train.auto_batch=False",
+                "train.auto_lr=False",
+                "train.batch_size=8",
                 "train.gpus=1",
                 "train.ignore_runtime_error=True",
                 "train.limit_batches=0.1",
                 f"train.effective_batch_size={config.effective_batch_size}",
+                f"train.lr={config.learning_rate}",
                 f"train.num_workers={config.num_workers}",
                 f"model.d_model={config.d_model}",
                 f"model.data_len={config.data_len}",
