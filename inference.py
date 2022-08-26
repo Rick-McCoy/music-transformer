@@ -102,7 +102,7 @@ def main(cfg: DictConfig) -> None:
         tokens = data[0].detach().cpu().numpy()
         event_list = tokenizer.tokens_to_events(tokens)
         midi_file = write_midi(event_list)
-        midi_file.save(filename="result.mid")
+        midi_file.save(filename="output.mid")
         with open("output_tokens.txt", mode="w", encoding="utf-8") as file:
             file.write(tokenizer.tokens_to_string(tokens))
 
