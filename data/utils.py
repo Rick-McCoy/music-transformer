@@ -6,7 +6,7 @@ import numpy as np
 from mido import Message, MidiFile
 from numpy import ndarray
 
-from config.config import CustomConfig
+from config.config import NUM_DRUM, NUM_NOTE, NUM_PROGRAM, NUM_SPECIAL, NUM_TICK
 
 
 class MessageType(IntEnum):
@@ -115,30 +115,26 @@ class Event:
 
 
 class Tokenizer:
-    def __init__(self, cfg: CustomConfig) -> None:
+    def __init__(self) -> None:
         self.pad = 0
         self.begin = 1
         self.end = 2
         self.note_off = 3
         self.note_on = 4
         self.tie = 5
-        self.num_program = cfg.num_program
-        self.num_drum = cfg.num_drum
-        self.num_note = cfg.num_note
-        self.num_tick = cfg.num_tick
-        self.special_limit = cfg.num_special
-        self.program_limit = self.special_limit + self.num_program
-        self.drum_limit = self.program_limit + self.num_drum
-        self.note_limit = self.drum_limit + self.num_note
-        self.tick_limit = self.note_limit + self.num_tick
+        self.special_limit = NUM_SPECIAL
+        self.program_limit = self.special_limit + NUM_PROGRAM
+        self.drum_limit = self.program_limit + NUM_DRUM
+        self.note_limit = self.drum_limit + NUM_NOTE
+        self.tick_limit = self.note_limit + NUM_TICK
 
     def program_to_token(self, program: int) -> int:
-        if 0 <= program < self.num_program:
+        if 0 <= program < NUM_PROGRAM:
             return program + self.special_limit
         raise InvalidProgramError(program)
 
     def drum_to_token(self, drum: int) -> int:
-        if 0 <= drum < self.num_drum:
+        if 0 <= drum < NUM_DRUM:
             return drum + self.program_limit
         raise InvalidDrumError(drum)
 
@@ -150,12 +146,12 @@ class Tokenizer:
         raise InvalidTypeError(message_type)
 
     def note_to_token(self, note: int) -> int:
-        if 0 <= note < self.num_note:
+        if 0 <= note < NUM_NOTE:
             return note + self.drum_limit
         raise InvalidNoteError(note)
 
     def tick_to_token(self, tick: int) -> int:
-        if 0 <= tick < self.num_tick:
+        if 0 <= tick < NUM_TICK:
             return tick + self.note_limit
         raise InvalidTickError(tick)
 
@@ -225,8 +221,8 @@ class Tokenizer:
         for event in event_list:
             tick_delta = event.tick - prev_tick
             while tick_delta > 0:
-                token_list.append(self.tick_to_token(min(tick_delta, self.num_tick) - 1))
-                tick_delta -= self.num_tick
+                token_list.append(self.tick_to_token(min(tick_delta, NUM_TICK) - 1))
+                tick_delta -= NUM_TICK
             prev_tick = event.tick
             if event.type is not None and event.type != prev_on_off:
                 token_list.append(self.type_to_token(event.type))
@@ -288,13 +284,13 @@ class Tokenizer:
         return event_list
 
     def determine_on_notes(self, tokens: ndarray) -> ndarray:
-        programs = np.zeros(self.num_program, dtype=bool)
+        programs = np.zeros(NUM_PROGRAM, dtype=bool)
         programs[
             tokens[(tokens >= self.special_limit) & (tokens < self.program_limit)]
             - self.special_limit
         ] = True
-        on_notes = np.zeros((self.num_program, self.num_note), dtype=bool)
-        on_drums = np.zeros((self.num_drum,), dtype=bool)
+        on_notes = np.zeros((NUM_PROGRAM, NUM_NOTE), dtype=bool)
+        on_drums = np.zeros((NUM_DRUM,), dtype=bool)
         on_drums[
             tokens[(tokens >= self.program_limit) & (tokens < self.drum_limit)]
             - self.program_limit

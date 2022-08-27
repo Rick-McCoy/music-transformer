@@ -4,7 +4,7 @@ import torch
 from hydra import compose, initialize
 from torch import Tensor
 
-from config.config import CustomConfig
+from config.config import NUM_TOKEN, CustomConfig
 from model.embedding import Embedding
 
 
@@ -13,7 +13,7 @@ class TestEmbedding(unittest.TestCase):
         with initialize(config_path="../config", version_base=None):
             cfg = compose(config_name="config")
             self.cfg = CustomConfig(cfg)
-            self.embedding = Embedding(d_model=self.cfg.d_model, num_tokens=self.cfg.num_tokens)
+            self.embedding = Embedding(d_model=self.cfg.d_model, num_embeddings=NUM_TOKEN)
 
     def test_embedding(self):
         data = torch.zeros(8, self.cfg.data_len, dtype=torch.int64)

@@ -6,6 +6,13 @@ from pathlib import Path
 
 from omegaconf import DictConfig
 
+NUM_SPECIAL = 6
+NUM_PROGRAM = 128
+NUM_DRUM = 128
+NUM_NOTE = 128
+NUM_TICK = 256
+NUM_TOKEN = NUM_SPECIAL + NUM_PROGRAM + NUM_DRUM + NUM_NOTE + NUM_TICK
+
 
 class CustomConfig:
     """
@@ -29,14 +36,6 @@ class CustomConfig:
         self.feed_forward: bool = self.cfg.model.feed_forward
         self.nhead: int = self.cfg.model.nhead
         self.num_layers: int = self.cfg.model.num_layers
-        self.num_special: int = self.cfg.model.num_special
-        self.num_program: int = self.cfg.model.num_program
-        self.num_drum: int = self.cfg.model.num_drum
-        self.num_note: int = self.cfg.model.num_note
-        self.num_tick: int = self.cfg.model.num_tick
-        self.num_tokens: int = (
-            self.num_special + self.num_program + self.num_drum + self.num_note + self.num_tick
-        )
 
         self.acc: int = self.cfg.train.acc
         self.auto_batch: bool = self.cfg.train.auto_batch

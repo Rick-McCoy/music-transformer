@@ -5,6 +5,7 @@
 import gc
 import math
 import traceback
+import warnings
 from typing import Tuple
 
 import hydra
@@ -35,8 +36,6 @@ def get_tune_model(cfg: CustomConfig) -> Tuple[MusicModel, Trainer]:
         feed_forward=cfg.feed_forward,
         nhead=cfg.nhead,
         num_layers=cfg.num_layers,
-        num_tokens=cfg.num_tokens,
-        is_training=False,
     )
     batch_trainer = Trainer(
         accelerator="auto",
@@ -101,6 +100,12 @@ def main(cfg: DictConfig) -> None:
     To run in another file, initialize a hydra config and call main(cfg).
     """
 
+    warnings.filterwarnings(
+        "ignore",
+        message="None of the inputs have requires_grad=True. Gradients will be None",
+        category=UserWarning,
+    )
+
     # Initialize CustomConfig
     custom_cfg = CustomConfig(cfg)
     devices = "auto" if custom_cfg.gpus == -1 else custom_cfg.gpus
@@ -109,7 +114,8 @@ def main(cfg: DictConfig) -> None:
         try:
             custom_cfg.batch_size = tune_batch_size(custom_cfg)
         except RuntimeError:
-            print("Model too large.")
+            print("RuntimeError: Batch size tuning failed.")
+            traceback.print_exc()
             return
 
     if custom_cfg.effective_batch_size > 0:
@@ -120,7 +126,8 @@ def main(cfg: DictConfig) -> None:
             custom_cfg.learning_rate = tune_learning_rate(custom_cfg)
             print(f"Learning rate: {custom_cfg.learning_rate}")
         except RuntimeError:
-            print("Batch size too large.")
+            print("RuntimeError: Learning rate tuning failed.")
+            traceback.print_exc()
             return
 
     model = MusicModel(
@@ -132,7 +139,6 @@ def main(cfg: DictConfig) -> None:
         feed_forward=custom_cfg.feed_forward,
         nhead=custom_cfg.nhead,
         num_layers=custom_cfg.num_layers,
-        num_tokens=custom_cfg.num_tokens,
     )
     datamodule = MusicDataModule(cfg=custom_cfg)
 

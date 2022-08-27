@@ -4,7 +4,7 @@ import torch
 from hydra import compose, initialize
 from torch import Tensor
 
-from config.config import CustomConfig
+from config.config import NUM_TOKEN, CustomConfig
 from data.datamodule import MusicDataModule
 
 
@@ -41,4 +41,4 @@ class TestDataModule(unittest.TestCase):
                 ),
             )
             self.assertTrue(torch.all(data >= 0))
-            self.assertTrue(torch.all(data < self.cfg.num_tokens))
+            self.assertTrue(torch.all(data < NUM_TOKEN))

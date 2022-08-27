@@ -79,7 +79,7 @@ def main(cfg: DictConfig) -> None:
     else:
         raise NotImplementedError("No checkpoint specified")
 
-    tokenizer = Tokenizer(custom_cfg)
+    tokenizer = Tokenizer()
     datamodule.prepare_data()
     datamodule.setup()
     dataloader = datamodule.test_dataloader()

@@ -19,7 +19,7 @@ class MusicDataset(Dataset):
     def __init__(self, cfg: CustomConfig, path_list: List[str], process_dir: Path) -> None:
         super().__init__()
         self.cfg = cfg
-        self.tokenizer = Tokenizer(cfg)
+        self.tokenizer = Tokenizer()
         self.length = cfg.data_len + 1
         self.path_list = path_list
         self.process_dir = process_dir
@@ -57,7 +57,7 @@ class MusicDataModule(LightningDataModule):
         if not self.cfg.process_dir.is_dir():
             self.cfg.process_dir.mkdir(parents=True)
         filenames = []
-        tokenizer = Tokenizer(self.cfg)
+        tokenizer = Tokenizer()
         for path in tqdm(self.cfg.data_dir.glob("**/*.mid")):
             relative_path = path.relative_to(self.cfg.data_dir)
             filename = self.cfg.process_dir / relative_path.with_suffix(".npy")

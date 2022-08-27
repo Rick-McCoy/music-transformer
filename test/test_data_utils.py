@@ -5,7 +5,7 @@ import numpy as np
 from hydra import compose, initialize
 from mido.midifiles.midifiles import MidiFile
 
-from config.config import CustomConfig
+from config.config import NUM_DRUM, NUM_NOTE, NUM_PROGRAM, CustomConfig
 from data.utils import Event, MessageType, Tokenizer, read_midi, write_midi
 
 
@@ -18,7 +18,7 @@ class TestDataUtils(unittest.TestCase):
         with open(file_path, mode="r", encoding="utf-8") as file:
             self.path_list = file.readlines()
         random.shuffle(self.path_list)
-        self.tokenizer = Tokenizer(self.cfg)
+        self.tokenizer = Tokenizer()
 
     def test_read_midi(self):
         self.assertTrue(self.path_list)
@@ -34,23 +34,15 @@ class TestDataUtils(unittest.TestCase):
                 if event.program is None:
                     self.assertIsNone(event.note)
                     assert event.drum is not None
-                    self.assertLess(event.drum, self.cfg.num_drum)
+                    self.assertLess(event.drum, NUM_DRUM)
                     self.assertEqual(event.type, MessageType.NOTE_ON)
                 else:
-                    self.assertLess(event.program, self.cfg.num_program)
+                    self.assertLess(event.program, NUM_PROGRAM)
                     assert event.note is not None
-                    self.assertLess(event.note, self.cfg.num_note)
+                    self.assertLess(event.note, NUM_NOTE)
                     self.assertIsNone(event.drum)
 
     def test_tokenize(self):
-        self.assertEqual(
-            self.cfg.num_special
-            + self.cfg.num_program
-            + self.cfg.num_drum
-            + self.cfg.num_note
-            + self.cfg.num_tick,
-            self.cfg.num_tokens,
-        )
         event_list = []
         event_list.append(
             Event(

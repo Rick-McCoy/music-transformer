@@ -28,13 +28,13 @@ class Transformer(nn.Module):
         feed_forward: int,
         nhead: int,
         num_layers: int,
-        num_tokens: int,
+        num_token: int,
     ) -> None:
         super().__init__()
         self.data_len = data_len
         self.embedding = Embedding(
             d_model=d_model,
-            num_tokens=num_tokens,
+            num_embeddings=num_token,
         )
         self.pos_encoding = PositionalEncoding(
             d_model=d_model,
@@ -58,7 +58,7 @@ class Transformer(nn.Module):
         )
         self.linear = nn.Linear(
             in_features=d_model,
-            out_features=num_tokens,
+            out_features=num_token,
         )
 
     def forward(self, data: Tensor) -> Tensor:
@@ -71,5 +71,5 @@ class Transformer(nn.Module):
             mask = self.mask[: encoded.shape[1], : encoded.shape[1]]
         normalized: Tensor = self.encoder(encoded, mask)
         projected: Tensor = self.linear(normalized)
-        output = projected.permute([0, -1] + list(range(1, projected.ndim - 1)))
+        output = projected.permute([0, 2, 1])
         return output

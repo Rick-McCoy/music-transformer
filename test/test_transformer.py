@@ -3,7 +3,7 @@ import unittest
 import torch
 from hydra import compose, initialize
 
-from config.config import CustomConfig
+from config.config import NUM_TOKEN, CustomConfig
 from model.transformer import Transformer
 
 
@@ -19,10 +19,10 @@ class TestTransformer(unittest.TestCase):
                 feed_forward=self.cfg.feed_forward,
                 nhead=self.cfg.nhead,
                 num_layers=self.cfg.num_layers,
-                num_tokens=self.cfg.num_tokens,
+                num_token=NUM_TOKEN,
             )
 
     def test_transformer(self):
         data = torch.zeros(8, self.cfg.data_len, dtype=torch.int64)
         output = self.transformer(data)
-        self.assertEqual(output.size(), (8, self.cfg.num_tokens, self.cfg.data_len))
+        self.assertEqual(output.size(), (8, NUM_TOKEN, self.cfg.data_len))
