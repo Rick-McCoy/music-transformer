@@ -38,3 +38,5 @@ parameters:
   nhead:
     values: [2, 4, 8, 16]
     distribution: categorical
+  num_workers:
+    value: 4
