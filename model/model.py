@@ -5,16 +5,16 @@
 from typing import List, Tuple
 
 import torch
-import wandb
 from pytorch_lightning import LightningModule
 from torch import Tensor
-from wandb import plot as wandb_plot
 
+import wandb
 from config.config import NUM_TOKEN
 from model.accuracy import SimpleAccuracy
 from model.loss import CrossEntropy
 from model.simplify import SimplifyClass, SimplifyScore
 from model.transformer import Transformer
+from wandb import plot as wandb_plot
 
 
 class MusicModel(LightningModule):
@@ -58,7 +58,8 @@ class MusicModel(LightningModule):
         data = args[0]
         return self.transformer(data)
 
-    def step_template(self, batch: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+    def step_template(self, *args, **_kwargs) -> Tuple[Tensor, Tensor, Tensor]:
+        batch = args[0]
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         acc = self.acc(output, batch[:, 1:])
