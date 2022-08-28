@@ -58,24 +58,25 @@ class MusicModel(LightningModule):
         data = args[0]
         return self.transformer(data)
 
-    def step_template(self, *args, **_kwargs) -> Tuple[Tensor, Tensor, Tensor]:
+    def step_template(self, *args, **kwargs) -> Tuple[Tensor, Tensor, Tensor]:
         batch = args[0]
+        mode = kwargs["mode"]
         output = self(batch[:, :-1])
         loss = self.loss(output, batch[:, 1:])
         acc = self.acc(output, batch[:, 1:])
-        self.log("train/loss", loss)
-        self.log("train/acc", acc)
+        self.log(f"{mode}/loss", loss)
+        self.log(f"{mode}/acc", acc)
         return loss, output, batch[:, 1:]
 
     def training_step(self, *args, **kwargs) -> Tensor:
-        loss, *_ = self.step_template(*args, **kwargs)
+        loss, *_ = self.step_template(*args, mode="train", **kwargs)
         return loss
 
     def validation_step(self, *args, **kwargs) -> Tuple[Tensor, Tensor, Tensor]:
-        return self.step_template(*args, **kwargs)
+        return self.step_template(*args, mode="val", **kwargs)
 
     def test_step(self, *args, **kwargs) -> Tuple[Tensor, Tensor, Tensor]:
-        return self.step_template(*args, **kwargs)
+        return self.step_template(*args, mode="test", **kwargs)
 
     def epoch_end_template(self, outputs: List[Tuple[Tensor, Tensor, Tensor]], mode: str) -> None:
         _, output_list, target_list = zip(*outputs)
