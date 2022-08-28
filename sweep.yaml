@@ -2,7 +2,7 @@ program: train.py
 method: bayes
 metric:
   goal: minimize
-  name: epoch
+  name: val/loss
 early_terminate:
   type: hyperband
   min_iter: 10
