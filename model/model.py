@@ -81,15 +81,15 @@ class MusicModel(LightningModule):
         _, output_list, target_list = zip(*outputs)
         score = torch.cat(output_list, dim=0).permute([0, 2, 1]).flatten(0, 1)
         target = torch.cat(target_list, dim=0).flatten()
-        y_true = self.simplify_class(target).detach().cpu().numpy()
-        y_probas = self.simplify_score(score).detach().cpu().numpy()
+        y_true = self.simplify_class(target).detach().cpu().numpy()[:10000]
+        y_probas = self.simplify_score(score).detach().cpu().numpy()[:10000]
         assert mode in ["val", "test"], f"Unknown mode {mode}"
         if self.logger is not None:
             wandb.log(
                 {
                     f"{mode}/pr_curve": wandb_plot.pr_curve(
-                        y_true=y_true[:10000],
-                        y_probas=y_probas[:10000],
+                        y_true=y_true,
+                        y_probas=y_probas,
                         labels=self.class_names,
                     )
                 }
@@ -97,8 +97,8 @@ class MusicModel(LightningModule):
             wandb.log(
                 {
                     f"{mode}/roc_curve": wandb_plot.roc_curve(
-                        y_true=y_true[:10000],
-                        y_probas=y_probas[:10000],
+                        y_true=y_true,
+                        y_probas=y_probas,
                         labels=self.class_names,
                     )
                 }

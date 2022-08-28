@@ -1,0 +1,40 @@
+program: train.py
+method: bayes
+metric:
+  goal: minimize
+  name: epoch
+early_terminate:
+  type: hyperband
+  min_iter: 10
+parameters:
+  effective_batch_size:
+    values: [64, 128, 256, 512, 1024]
+    distribution: categorical
+  learning_rate:
+    max: 0.01
+    min: 0.0001
+    distribution: log_uniform_values
+  weight_decay:
+    max: 0.1
+    min: 0.001
+    distribution: log_uniform_values
+  feed_forward:
+    values: [256, 512, 1024, 2048]
+    distribution: categorical
+  num_layers:
+    max: 16
+    min: 4
+    distribution: int_uniform
+  data_len:
+    values: [256, 512, 1024, 2048]
+    distribution: categorical
+  dropout:
+    max: 0.2
+    min: 0.01
+    distribution: log_uniform_values
+  d_model:
+    values: [256, 512, 1024, 2048]
+    distribution: categorical
+  nhead:
+    values: [2, 4, 8, 16]
+    distribution: categorical
