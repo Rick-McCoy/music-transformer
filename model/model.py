@@ -87,8 +87,8 @@ class MusicModel(LightningModule):
             wandb.log(
                 {
                     "val/pr_curve": wandb_plot.pr_curve(
-                        y_true=y_true,
-                        y_probas=y_probas,
+                        y_true=y_true[:10000],
+                        y_probas=y_probas[:10000],
                         labels=self.class_names,
                     )
                 }
@@ -96,8 +96,8 @@ class MusicModel(LightningModule):
             wandb.log(
                 {
                     "val/roc_curve": wandb_plot.roc_curve(
-                        y_true=y_true,
-                        y_probas=y_probas,
+                        y_true=y_true[:10000],
+                        y_probas=y_probas[:10000],
                         labels=self.class_names,
                     )
                 }
@@ -105,8 +105,8 @@ class MusicModel(LightningModule):
             wandb.log(
                 {
                     "val/conf_mat": wandb_plot.confusion_matrix(
-                        y_true=y_true,
                         probs=y_probas,
+                        y_true=y_true,
                         class_names=self.class_names,
                     )
                 }
@@ -133,8 +133,8 @@ class MusicModel(LightningModule):
             wandb.log(
                 {
                     "test/pr_curve": wandb_plot.pr_curve(
-                        y_true=y_true,
-                        y_probas=y_probas,
+                        y_true=y_true[:10000],
+                        y_probas=y_probas[:10000],
                         labels=self.class_names,
                     )
                 }
@@ -142,8 +142,8 @@ class MusicModel(LightningModule):
             wandb.log(
                 {
                     "test/roc_curve": wandb_plot.roc_curve(
-                        y_true=y_true,
-                        y_probas=y_probas,
+                        y_true=y_true[:10000],
+                        y_probas=y_probas[:10000],
                         labels=self.class_names,
                     )
                 }
@@ -151,8 +151,8 @@ class MusicModel(LightningModule):
             wandb.log(
                 {
                     "test/conf_mat": wandb_plot.confusion_matrix(
-                        y_true=y_true,
                         probs=y_probas,
+                        y_true=y_true,
                         class_names=self.class_names,
                     )
                 }
