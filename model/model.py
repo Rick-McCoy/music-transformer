@@ -5,16 +5,16 @@
 from typing import List, Tuple
 
 import torch
+import wandb
 from pytorch_lightning import LightningModule
 from torch import Tensor
+from wandb import plot as wandb_plot
 
-import wandb
 from config.config import NUM_TOKEN
 from model.accuracy import SimpleAccuracy
 from model.loss import CrossEntropy
 from model.simplify import SimplifyClass, SimplifyScore
 from model.transformer import Transformer
-from wandb import plot as wandb_plot
 
 
 class MusicModel(LightningModule):
@@ -66,7 +66,7 @@ class MusicModel(LightningModule):
         acc = self.acc(output, batch[:, 1:])
         self.log(f"{mode}/loss", loss)
         self.log(f"{mode}/acc", acc)
-        return loss, output, batch[:, 1:]
+        return loss, output.detach(), batch[:, 1:].detach()
 
     def training_step(self, *args, **kwargs) -> Tensor:
         loss, *_ = self.step_template(*args, mode="train", **kwargs)
@@ -82,8 +82,8 @@ class MusicModel(LightningModule):
         _, output_list, target_list = zip(*outputs)
         score = torch.cat(output_list, dim=0).permute([0, 2, 1]).flatten(0, 1)
         target = torch.cat(target_list, dim=0).flatten()
-        y_true = self.simplify_class(target).detach().cpu().numpy()[:10000]
-        y_probas = self.simplify_score(score).detach().cpu().numpy()[:10000]
+        y_true = self.simplify_class(target).cpu().numpy()[:10000]
+        y_probas = self.simplify_score(score).cpu().numpy()[:10000]
         assert mode in ["val", "test"], f"Unknown mode {mode}"
         if self.logger is not None:
             wandb.log(
