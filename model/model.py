@@ -72,14 +72,16 @@ class MusicModel(LightningModule):
         loss, *_ = self.step_template(*args, mode="train", **kwargs)
         return loss
 
-    def validation_step(self, *args, **kwargs) -> Tuple[Tensor, Tensor, Tensor]:
-        return self.step_template(*args, mode="val", **kwargs)
+    def validation_step(self, *args, **kwargs) -> Tuple[Tensor, Tensor]:
+        _, output, target = self.step_template(*args, mode="val", **kwargs)
+        return output, target
 
-    def test_step(self, *args, **kwargs) -> Tuple[Tensor, Tensor, Tensor]:
-        return self.step_template(*args, mode="test", **kwargs)
+    def test_step(self, *args, **kwargs) -> Tuple[Tensor, Tensor]:
+        _, output, target = self.step_template(*args, mode="test", **kwargs)
+        return output, target
 
-    def epoch_end_template(self, outputs: List[Tuple[Tensor, Tensor, Tensor]], mode: str) -> None:
-        _, output_list, target_list = zip(*outputs)
+    def epoch_end_template(self, outputs: List[Tuple[Tensor, Tensor]], mode: str) -> None:
+        output_list, target_list = zip(*outputs)
         score = torch.cat(output_list, dim=0).permute([0, 2, 1]).flatten(0, 1)
         target = torch.cat(target_list, dim=0).flatten()
         y_true = self.simplify_class(target).cpu().numpy()[:10000]
@@ -114,10 +116,10 @@ class MusicModel(LightningModule):
                 }
             )
 
-    def validation_epoch_end(self, outputs: List[Tuple[Tensor, Tensor, Tensor]]) -> None:
+    def validation_epoch_end(self, outputs: List[Tuple[Tensor, Tensor]]) -> None:
         self.epoch_end_template(outputs, "val")
 
-    def test_epoch_end(self, outputs: List[Tuple[Tensor, Tensor, Tensor]]) -> None:
+    def test_epoch_end(self, outputs: List[Tuple[Tensor, Tensor]]) -> None:
         self.epoch_end_template(outputs, "test")
 
     def configure_optimizers(self):
