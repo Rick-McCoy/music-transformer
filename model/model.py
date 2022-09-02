@@ -4,6 +4,7 @@
 
 from typing import List, Tuple
 
+import numpy as np
 import torch
 import wandb
 from pytorch_lightning import LightningModule
@@ -74,25 +75,29 @@ class MusicModel(LightningModule):
 
     def validation_step(self, *args, **kwargs) -> Tuple[Tensor, Tensor]:
         _, output, target = self.step_template(*args, mode="val", **kwargs)
-        return output, target
+        score = output.permute([0, 2, 1]).flatten(0, 1)
+        target = target.flatten()
+        return self.simplify_score(score), self.simplify_class(target)
 
     def test_step(self, *args, **kwargs) -> Tuple[Tensor, Tensor]:
         _, output, target = self.step_template(*args, mode="test", **kwargs)
-        return output, target
+        score = output.permute([0, 2, 1]).flatten(0, 1)
+        target = target.flatten()
+        return self.simplify_score(score), self.simplify_class(target)
 
     def epoch_end_template(self, outputs: List[Tuple[Tensor, Tensor]], mode: str) -> None:
         output_list, target_list = zip(*outputs)
-        score = torch.cat(output_list, dim=0).permute([0, 2, 1]).flatten(0, 1)
-        target = torch.cat(target_list, dim=0).flatten()
-        y_true = self.simplify_class(target).cpu().numpy()[:10000]
-        y_probas = self.simplify_score(score).cpu().numpy()[:10000]
+        score = torch.cat(output_list, dim=0)
+        target = torch.cat(target_list, dim=0)
+        y_true = score.cpu().numpy()[np.random.choice(len(score), 10000, replace=False)]
+        y_prob = target.cpu().numpy()[np.random.choice(len(target), 10000, replace=False)]
         assert mode in ["val", "test"], f"Unknown mode {mode}"
         if self.logger is not None:
             wandb.log(
                 {
                     f"{mode}/pr_curve": wandb_plot.pr_curve(
                         y_true=y_true,
-                        y_probas=y_probas,
+                        y_probas=y_prob,
                         labels=self.class_names,
                     )
                 }
@@ -101,7 +106,7 @@ class MusicModel(LightningModule):
                 {
                     f"{mode}/roc_curve": wandb_plot.roc_curve(
                         y_true=y_true,
-                        y_probas=y_probas,
+                        y_probas=y_prob,
                         labels=self.class_names,
                     )
                 }
@@ -109,7 +114,7 @@ class MusicModel(LightningModule):
             wandb.log(
                 {
                     f"{mode}/conf_mat": wandb_plot.confusion_matrix(
-                        probs=y_probas,
+                        probs=y_prob,
                         y_true=y_true,
                         class_names=self.class_names,
                     )
