@@ -16,7 +16,7 @@ from pytorch_lightning.callbacks import (
     EarlyStopping,
     ModelCheckpoint,
 )
-from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers.wandb import WandbLogger
 from pytorch_lightning.profiler import PyTorchProfiler
 from pytorch_lightning.trainer import Trainer
 
@@ -82,6 +82,7 @@ def tune_learning_rate(cfg: CustomConfig) -> float:
     )
     assert lr_finder is not None
     fig = lr_finder.plot(suggest=True)
+    assert fig is not None
     fig.savefig("lr_finder.png")
     learning_rate = lr_finder.suggestion()
     assert isinstance(learning_rate, float)
@@ -169,7 +170,7 @@ def main(cfg: DictConfig) -> None:
 
     custom_cfg.log_dir.mkdir(parents=True, exist_ok=True)
     if custom_cfg.wandb:
-        logger = WandbLogger(save_dir=str(custom_cfg.log_dir))
+        logger = WandbLogger(save_dir=str(custom_cfg.log_dir), project="music-transformer")
         logger.log_hyperparams({"effective_batch_size": custom_cfg.effective_batch_size})
         logger.watch(model)
     else:
