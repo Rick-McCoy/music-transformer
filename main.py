@@ -171,6 +171,7 @@ def main(cfg: DictConfig) -> None:
     if custom_cfg.wandb:
         logger = WandbLogger(save_dir=str(custom_cfg.log_dir))
         logger.log_hyperparams({"effective_batch_size": custom_cfg.effective_batch_size})
+        logger.watch(model)
     else:
         logger = None
     max_time = None if custom_cfg.max_time == "" else custom_cfg.max_time
