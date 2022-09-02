@@ -89,8 +89,11 @@ class MusicModel(LightningModule):
         output_list, target_list = zip(*outputs)
         score = torch.cat(output_list, dim=0)
         target = torch.cat(target_list, dim=0)
-        y_true = score.cpu().numpy()[np.random.choice(len(score), 10000, replace=False)]
-        y_prob = target.cpu().numpy()[np.random.choice(len(target), 10000, replace=False)]
+        y_prob = score.cpu().numpy()
+        y_true = target.cpu().numpy()
+        if len(y_prob) > 10000:
+            y_prob = y_prob[np.random.choice(len(y_prob), 10000, replace=False)]
+            y_true = y_true[np.random.choice(len(y_true), 10000, replace=False)]
         assert mode in ["val", "test"], f"Unknown mode {mode}"
         if self.logger is not None:
             wandb.log(
