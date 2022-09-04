@@ -92,8 +92,9 @@ class MusicModel(LightningModule):
         y_prob = score.cpu().numpy()
         y_true = target.cpu().numpy()
         if len(y_prob) > 10000:
-            y_prob = y_prob[np.random.choice(len(y_prob), 10000, replace=False)]
-            y_true = y_true[np.random.choice(len(y_true), 10000, replace=False)]
+            random_indices = np.random.choice(len(y_prob), 10000, replace=False)
+            y_prob = y_prob[random_indices]
+            y_true = y_true[random_indices]
         assert mode in ["val", "test"], f"Unknown mode {mode}"
         if self.logger is not None:
             wandb.log(
