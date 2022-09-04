@@ -42,6 +42,7 @@ def get_tune_model(cfg: CustomConfig) -> Tuple[MusicModel, Trainer]:
         accumulate_grad_batches=cfg.acc,
         detect_anomaly=True,
         devices=devices,
+        logger=False,
         max_epochs=cfg.max_epochs,
         precision=16,
     )
@@ -191,7 +192,7 @@ def main(cfg: DictConfig) -> None:
         logger=[logger] if logger is not None else False,
         max_epochs=custom_cfg.max_epochs,
         max_time=max_time,
-        num_sanity_val_steps=2,
+        num_sanity_val_steps=10,
         precision=16,
         profiler=profiler,
     )
