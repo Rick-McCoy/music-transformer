@@ -91,39 +91,22 @@ class MusicModel(LightningModule):
         target = torch.cat(target_list, dim=0)
         y_prob = score.cpu().numpy()
         y_true = target.cpu().numpy()
-        if len(y_prob) > 10000:
-            random_indices = np.random.choice(len(y_prob), 10000, replace=False)
+        if len(y_prob) > 6000:
+            random_indices = np.random.choice(len(y_prob), 6000, replace=False)
             y_prob = y_prob[random_indices]
             y_true = y_true[random_indices]
         assert mode in ["val", "test"], f"Unknown mode {mode}"
         if self.logger is not None:
-            wandb.log(
-                {
-                    f"{mode}/pr_curve": wandb_plot.pr_curve(
-                        y_true=y_true,
-                        y_probas=y_prob,
-                        labels=self.class_names,
-                    )
-                }
+            pr_curve = wandb_plot.pr_curve(y_true=y_true, y_probas=y_prob, labels=self.class_names)
+            roc_curve = wandb_plot.roc_curve(
+                y_true=y_true, y_probas=y_prob, labels=self.class_names
             )
-            wandb.log(
-                {
-                    f"{mode}/roc_curve": wandb_plot.roc_curve(
-                        y_true=y_true,
-                        y_probas=y_prob,
-                        labels=self.class_names,
-                    )
-                }
+            confusion_matrix = wandb_plot.confusion_matrix(
+                probs=y_prob, y_true=y_true, class_names=self.class_names
             )
-            wandb.log(
-                {
-                    f"{mode}/conf_mat": wandb_plot.confusion_matrix(
-                        probs=y_prob,
-                        y_true=y_true,
-                        class_names=self.class_names,
-                    )
-                }
-            )
+            wandb.log({f"{mode}/pr_curve": pr_curve})
+            wandb.log({f"{mode}/roc_curve": roc_curve})
+            wandb.log({f"{mode}/conf_mat": confusion_matrix})
 
     def validation_epoch_end(self, outputs: List[Tuple[Tensor, Tensor]]) -> None:
         self.epoch_end_template(outputs, "val")
