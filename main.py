@@ -131,6 +131,8 @@ def main(cfg: DictConfig) -> None:
             print("RuntimeError: Learning rate tuning failed.")
             traceback.print_exc()
             return
+    else:
+        custom_cfg.learning_rate /= custom_cfg.acc
 
     model = MusicModel(
         learning_rate=custom_cfg.learning_rate,
