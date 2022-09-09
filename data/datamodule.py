@@ -11,15 +11,14 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset, random_split
 from tqdm import tqdm
 
-from config.config import CustomConfig
-from data.utils import Tokenizer, read_midi
+from config.config import PAD, CustomConfig
+from data.utils import augment_tokens, determine_on_notes, events_to_tokens, read_midi
 
 
 class MusicDataset(Dataset):
     def __init__(self, cfg: CustomConfig, path_list: List[str], process_dir: Path) -> None:
         super().__init__()
         self.cfg = cfg
-        self.tokenizer = Tokenizer()
         self.length = cfg.data_len + 1
         self.path_list = path_list
         self.process_dir = process_dir
@@ -27,16 +26,16 @@ class MusicDataset(Dataset):
     def __getitem__(self, index: int) -> ndarray:
         path = Path(self.process_dir, self.path_list[index]).with_suffix(".npy")
         data: ndarray = np.load(path).astype(np.int64)
+        data = augment_tokens(data)
         if self.length > data.shape[0]:
-            on_notes = self.tokenizer.determine_on_notes(data)
+            on_notes = determine_on_notes(data)
             data = np.concatenate([on_notes, data], axis=0)[: self.length]
             pad_length = self.length - data.shape[0]
-            pad_value = self.tokenizer.pad
-            return np.pad(data, (0, pad_length), mode="constant", constant_values=pad_value)
+            return np.pad(data, (0, pad_length), mode="constant", constant_values=PAD)
         random_index = random.randint(0, data.shape[0] - self.length)
         prefix = data[:random_index]
         slice_data = data[random_index : random_index + self.length]
-        on_notes = self.tokenizer.determine_on_notes(prefix)
+        on_notes = determine_on_notes(prefix)
         assert on_notes.shape[0] < self.length
         return np.concatenate([on_notes, slice_data])[: self.length]
 
@@ -57,7 +56,6 @@ class MusicDataModule(LightningDataModule):
         if not self.cfg.process_dir.is_dir():
             self.cfg.process_dir.mkdir(parents=True)
         filenames = []
-        tokenizer = Tokenizer()
         for path in tqdm(self.cfg.data_dir.glob("**/*.mid")):
             relative_path = path.relative_to(self.cfg.data_dir)
             filename = self.cfg.process_dir / relative_path.with_suffix(".npy")
@@ -72,7 +70,7 @@ class MusicDataModule(LightningDataModule):
                     path.unlink()
                 continue
             event_list = read_midi(midi_file)
-            tokens = tokenizer.tokenize(event_list)
+            tokens = events_to_tokens(event_list)
             np.save(filename, tokens.astype(np.int16))
             filenames.append(str(relative_path) + "\n")
 

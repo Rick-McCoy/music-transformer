@@ -5,8 +5,27 @@ import numpy as np
 from hydra import compose, initialize
 from mido.midifiles.midifiles import MidiFile
 
-from config.config import NUM_DRUM, NUM_NOTE, NUM_PROGRAM, CustomConfig
-from data.utils import Event, MessageType, Tokenizer, read_midi, write_midi
+from config.config import (
+    BEGIN,
+    DRUM_LIMIT,
+    END,
+    NOTE_LIMIT,
+    NOTE_OFF,
+    NOTE_ON,
+    NUM_DRUM,
+    NUM_NOTE,
+    NUM_PROGRAM,
+    SPECIAL_LIMIT,
+    CustomConfig,
+)
+from data.utils import (
+    Event,
+    MessageType,
+    events_to_tokens,
+    read_midi,
+    tokens_to_events,
+    write_midi,
+)
 
 
 class TestDataUtils(unittest.TestCase):
@@ -18,7 +37,6 @@ class TestDataUtils(unittest.TestCase):
         with open(file_path, mode="r", encoding="utf-8") as file:
             self.path_list = file.readlines()
         random.shuffle(self.path_list)
-        self.tokenizer = Tokenizer()
 
     def test_read_midi(self):
         self.assertTrue(self.path_list)
@@ -42,7 +60,7 @@ class TestDataUtils(unittest.TestCase):
                     self.assertLess(event.note, NUM_NOTE)
                     self.assertIsNone(event.drum)
 
-    def test_tokenize(self):
+    def test_events_to_tokens(self):
         event_list = []
         event_list.append(
             Event(
@@ -76,45 +94,45 @@ class TestDataUtils(unittest.TestCase):
                 program=8,
             )
         )
-        tokens = self.tokenizer.tokenize(event_list)
-        self.assertEqual(tokens[0], self.tokenizer.begin)
-        self.assertEqual(tokens[1], self.tokenizer.note_on)
-        self.assertEqual(tokens[2], self.tokenizer.special_limit + 0)
-        self.assertEqual(tokens[3], self.tokenizer.drum_limit + 64)
-        self.assertEqual(tokens[4], self.tokenizer.note_limit + 1)
-        self.assertEqual(tokens[5], self.tokenizer.special_limit + 8)
-        self.assertEqual(tokens[6], self.tokenizer.drum_limit + 48)
-        self.assertEqual(tokens[7], self.tokenizer.note_limit + 7)
-        self.assertEqual(tokens[8], self.tokenizer.note_off)
-        self.assertEqual(tokens[9], self.tokenizer.special_limit + 0)
-        self.assertEqual(tokens[10], self.tokenizer.drum_limit + 64)
-        self.assertEqual(tokens[11], self.tokenizer.note_limit + 1)
-        self.assertEqual(tokens[12], self.tokenizer.special_limit + 8)
-        self.assertEqual(tokens[13], self.tokenizer.drum_limit + 48)
-        self.assertEqual(tokens[14], self.tokenizer.end)
+        tokens = events_to_tokens(event_list)
+        self.assertEqual(tokens[0], BEGIN)
+        self.assertEqual(tokens[1], NOTE_ON)
+        self.assertEqual(tokens[2], SPECIAL_LIMIT + 0)
+        self.assertEqual(tokens[3], DRUM_LIMIT + 64)
+        self.assertEqual(tokens[4], NOTE_LIMIT + 1)
+        self.assertEqual(tokens[5], SPECIAL_LIMIT + 8)
+        self.assertEqual(tokens[6], DRUM_LIMIT + 48)
+        self.assertEqual(tokens[7], NOTE_LIMIT + 7)
+        self.assertEqual(tokens[8], NOTE_OFF)
+        self.assertEqual(tokens[9], SPECIAL_LIMIT + 0)
+        self.assertEqual(tokens[10], DRUM_LIMIT + 64)
+        self.assertEqual(tokens[11], NOTE_LIMIT + 1)
+        self.assertEqual(tokens[12], SPECIAL_LIMIT + 8)
+        self.assertEqual(tokens[13], DRUM_LIMIT + 48)
+        self.assertEqual(tokens[14], END)
 
     def test_tokens_to_notes(self):
         tokens = np.array(
             [
-                self.tokenizer.begin,
-                self.tokenizer.note_on,
-                self.tokenizer.special_limit + 0,
-                self.tokenizer.drum_limit + 64,
-                self.tokenizer.note_limit + 1,
-                self.tokenizer.special_limit + 8,
-                self.tokenizer.drum_limit + 48,
-                self.tokenizer.note_limit + 7,
-                self.tokenizer.note_off,
-                self.tokenizer.special_limit + 0,
-                self.tokenizer.drum_limit + 64,
-                self.tokenizer.note_limit + 1,
-                self.tokenizer.special_limit + 8,
-                self.tokenizer.drum_limit + 48,
-                self.tokenizer.end,
+                BEGIN,
+                NOTE_ON,
+                SPECIAL_LIMIT + 0,
+                DRUM_LIMIT + 64,
+                NOTE_LIMIT + 1,
+                SPECIAL_LIMIT + 8,
+                DRUM_LIMIT + 48,
+                NOTE_LIMIT + 7,
+                NOTE_OFF,
+                SPECIAL_LIMIT + 0,
+                DRUM_LIMIT + 64,
+                NOTE_LIMIT + 1,
+                SPECIAL_LIMIT + 8,
+                DRUM_LIMIT + 48,
+                END,
             ],
             dtype=np.int64,
         )
-        event_list = self.tokenizer.tokens_to_events(tokens)
+        event_list = tokens_to_events(tokens)
         self.assertEqual(event_list[0].type, MessageType.NOTE_ON)
         self.assertEqual(event_list[0].tick, 0)
         self.assertEqual(event_list[0].note, 64)

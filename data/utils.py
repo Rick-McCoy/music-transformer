@@ -6,7 +6,23 @@ import numpy as np
 from mido import Message, MidiFile
 from numpy import ndarray
 
-from config.config import NUM_DRUM, NUM_NOTE, NUM_PROGRAM, NUM_SPECIAL, NUM_TICK
+from config.config import (
+    BEGIN,
+    DRUM_LIMIT,
+    END,
+    NOTE_LIMIT,
+    NOTE_OFF,
+    NOTE_ON,
+    NUM_DRUM,
+    NUM_NOTE,
+    NUM_PROGRAM,
+    NUM_TICK,
+    PAD,
+    PROGRAM_LIMIT,
+    SPECIAL_LIMIT,
+    TICK_LIMIT,
+    TIE,
+)
 
 
 class MessageType(IntEnum):
@@ -102,220 +118,214 @@ class Event:
         self.drum = drum
 
     def __repr__(self):
-        string = "<"
-        for attr in ["type", "tick", "program", "note", "drum"]:
-            string += f"{attr}={getattr(self, attr)}"
-            if attr != "drum":
-                string += " "
-        string += ">"
+        string = "<" + " ".join(f"{k}={v}" for k, v in self.__dict__.items()) + ">"
         return string
 
     def __str__(self):
         return self.__repr__()
 
 
-class Tokenizer:
-    def __init__(self) -> None:
-        self.pad = 0
-        self.begin = 1
-        self.end = 2
-        self.note_off = 3
-        self.note_on = 4
-        self.tie = 5
-        self.special_limit = NUM_SPECIAL
-        self.program_limit = self.special_limit + NUM_PROGRAM
-        self.drum_limit = self.program_limit + NUM_DRUM
-        self.note_limit = self.drum_limit + NUM_NOTE
-        self.tick_limit = self.note_limit + NUM_TICK
+def program_to_token(program: int) -> int:
+    if 0 <= program < NUM_PROGRAM:
+        return program + SPECIAL_LIMIT
+    raise InvalidProgramError(program)
 
-    def program_to_token(self, program: int) -> int:
-        if 0 <= program < NUM_PROGRAM:
-            return program + self.special_limit
-        raise InvalidProgramError(program)
 
-    def drum_to_token(self, drum: int) -> int:
-        if 0 <= drum < NUM_DRUM:
-            return drum + self.program_limit
-        raise InvalidDrumError(drum)
+def drum_to_token(drum: int) -> int:
+    if 0 <= drum < NUM_DRUM:
+        return drum + PROGRAM_LIMIT
+    raise InvalidDrumError(drum)
 
-    def type_to_token(self, message_type: MessageType) -> int:
-        if message_type == MessageType.NOTE_ON:
-            return self.note_on
-        if message_type == MessageType.NOTE_OFF:
-            return self.note_off
-        raise InvalidTypeError(message_type)
 
-    def note_to_token(self, note: int) -> int:
-        if 0 <= note < NUM_NOTE:
-            return note + self.drum_limit
-        raise InvalidNoteError(note)
+def type_to_token(message_type: MessageType) -> int:
+    if message_type == MessageType.NOTE_ON:
+        return NOTE_ON
+    if message_type == MessageType.NOTE_OFF:
+        return NOTE_OFF
+    raise InvalidTypeError(message_type)
 
-    def tick_to_token(self, tick: int) -> int:
-        if 0 <= tick < NUM_TICK:
-            return tick + self.note_limit
-        raise InvalidTickError(tick)
 
-    def token_to_string(self, token: int) -> str:
-        if token < self.special_limit:
-            if token == self.pad:
-                return "PAD"
-            if token == self.begin:
-                return "BEGIN"
-            if token == self.end:
-                return "END"
-            if token == self.note_on:
-                return "NOTE_ON"
-            if token == self.note_off:
-                return "NOTE_OFF"
-            if token == self.tie:
-                return "TIE"
-            raise InvalidTokenError(token)
-        if token < self.program_limit:
-            return f"PROG_{token - self.special_limit:03d}"
-        if token < self.drum_limit:
-            return f"DRUM_{token - self.program_limit:03d}"
-        if token < self.note_limit:
-            return f"NOTE_{token - self.drum_limit:03d}"
-        if token < self.tick_limit:
-            return f"TICK_{token - self.note_limit + 1:03d}"
+def note_to_token(note: int) -> int:
+    if 0 <= note < NUM_NOTE:
+        return note + DRUM_LIMIT
+    raise InvalidNoteError(note)
+
+
+def tick_to_token(tick: int) -> int:
+    if 0 <= tick < NUM_TICK:
+        return tick + NOTE_LIMIT
+    raise InvalidTickError(tick)
+
+
+def token_to_string(token: int) -> str:
+    if token < SPECIAL_LIMIT:
+        if token == PAD:
+            return "PAD"
+        if token == BEGIN:
+            return "BEGIN"
+        if token == END:
+            return "END"
+        if token == NOTE_OFF:
+            return "NOTE_OFF"
+        if token == NOTE_ON:
+            return "NOTE_ON"
+        if token == TIE:
+            return "TIE"
         raise InvalidTokenError(token)
+    if token < PROGRAM_LIMIT:
+        return f"PROG_{token - SPECIAL_LIMIT:03d}"
+    if token < DRUM_LIMIT:
+        return f"DRUM_{token - PROGRAM_LIMIT:03d}"
+    if token < NOTE_LIMIT:
+        return f"NOTE_{token - DRUM_LIMIT:03d}"
+    if token < TICK_LIMIT:
+        return f"TICK_{token - NOTE_LIMIT + 1:03d}"
+    raise InvalidTokenError(token)
 
-    def tokens_to_string(self, tokens: Iterable[int]) -> str:
-        result = ""
-        line = ["", "", "", ""]
 
-        def update_result(result: str, line: List[str], string: str, index: int):
-            if line[index]:
-                result += "\n| " + " | ".join(f"{s:8s}" for s in line) + " |"
-                line = ["", "", "", ""]
-            line[index] = string
-            return result, line
+def tokens_to_string(tokens: Iterable[int]) -> str:
+    result = ""
+    line = ["", "", "", ""]
 
-        for token in tokens:
-            string = self.token_to_string(token)
-            if token < self.special_limit:
-                if token in (self.pad, self.begin, self.end, self.tie):
-                    if any(line):
-                        result += "\n| " + " | ".join(f"{s:8s}" for s in line) + " |"
-                    line = [string, "", "", ""]
-                elif token in (self.note_on, self.note_off):
-                    result, line = update_result(result, line, string, 1)
-            elif token < self.program_limit:
-                result, line = update_result(result, line, string, 2)
-            elif token < self.note_limit:
-                result, line = update_result(result, line, string, 3)
-            elif token < self.tick_limit:
-                result, line = update_result(result, line, string, 0)
+    def update_result(result: str, line: List[str], string: str, index: int):
+        if line[index]:
+            result += "\n| " + " | ".join(f"{s:8s}" for s in line) + " |"
+            line = ["", "", "", ""]
+        line[index] = string
+        return result, line
+
+    for token in tokens:
+        string = token_to_string(token)
+        if token < SPECIAL_LIMIT:
+            if token in (PAD, BEGIN, END, TIE):
+                if any(line):
+                    result += "\n| " + " | ".join(f"{s:8s}" for s in line) + " |"
+                line = [string, "", "", ""]
+            elif token in (NOTE_ON, NOTE_OFF):
+                result, line = update_result(result, line, string, 1)
             else:
                 raise InvalidTokenError(token)
+        elif token < PROGRAM_LIMIT:
+            result, line = update_result(result, line, string, 2)
+        elif token < NOTE_LIMIT:
+            result, line = update_result(result, line, string, 3)
+        elif token < TICK_LIMIT:
+            result, line = update_result(result, line, string, 0)
+        else:
+            raise InvalidTokenError(token)
 
-        if any(line):
-            result += f"\n| {line[0]:8s} | {str(line[1]):8s} | {line[2]:8s} | {line[3]:8s} |"
-        return result
+    if any(line):
+        result += f"\n| {line[0]:8s} | {str(line[1]):8s} | {line[2]:8s} | {line[3]:8s} |"
+    return result
 
-    def tokenize(self, event_list: List[Event]) -> ndarray:
-        token_list = [self.begin]
-        prev_tick = 0
-        prev_program = None
-        prev_on_off = MessageType.NOTE_OFF
-        for event in event_list:
-            tick_delta = event.tick - prev_tick
-            while tick_delta > 0:
-                token_list.append(self.tick_to_token(min(tick_delta, NUM_TICK) - 1))
-                tick_delta -= NUM_TICK
-            prev_tick = event.tick
-            if event.type is not None and event.type != prev_on_off:
-                token_list.append(self.type_to_token(event.type))
-                prev_on_off = event.type
-            if event.program is not None and event.program != prev_program:
-                token_list.append(self.program_to_token(event.program))
-                prev_program = event.program
-            if event.note is not None:
-                token_list.append(self.note_to_token(event.note))
-            if event.drum is not None:
-                token_list.append(self.drum_to_token(event.drum))
-        token_list.append(self.end)
 
-        return np.array(token_list, dtype=np.int64)
+def events_to_tokens(event_list: List[Event]) -> ndarray:
+    token_list = [BEGIN]
+    prev_tick = 0
+    prev_program = None
+    prev_on_off = MessageType.NOTE_OFF
+    for event in event_list:
+        tick_delta = event.tick - prev_tick
+        while tick_delta > 0:
+            token_list.append(tick_to_token(min(tick_delta, NUM_TICK) - 1))
+            tick_delta -= NUM_TICK
+        prev_tick = event.tick
+        if event.type is not None and event.type != prev_on_off:
+            token_list.append(type_to_token(event.type))
+            prev_on_off = event.type
+        if event.program is not None and event.program != prev_program:
+            token_list.append(program_to_token(event.program))
+            prev_program = event.program
+        if event.note is not None:
+            token_list.append(note_to_token(event.note))
+        if event.drum is not None:
+            token_list.append(drum_to_token(event.drum))
+    token_list.append(END)
 
-    def tokens_to_events(self, tokens: ndarray) -> List[Event]:
-        event_list: List[Event] = []
-        cur_tick = 0
-        cur_program = 0
-        cur_on_off = MessageType.NOTE_OFF
-        if self.tie in tokens:
-            tie_index = np.where(tokens == self.tie)[0][0]
-            tokens = tokens[tie_index + 1 :]
-        for token in tokens:
-            if token < self.special_limit:
-                if token == self.end:
-                    break
-                if token == self.note_on:
-                    cur_on_off = MessageType.NOTE_ON
-                if token == self.note_off:
-                    cur_on_off = MessageType.NOTE_OFF
-            elif token < self.program_limit:
-                cur_program = token - self.special_limit
-            elif token < self.drum_limit:
-                drum = token - self.program_limit
-                event_list.append(
-                    Event(
-                        message_type=cur_on_off,
-                        tick=cur_tick,
-                        drum=drum,
-                    )
+    return np.array(token_list, dtype=np.int64)
+
+
+def tokens_to_events(tokens: ndarray) -> List[Event]:
+    event_list: List[Event] = []
+    cur_tick = 0
+    cur_program = 0
+    cur_on_off = MessageType.NOTE_OFF
+    if TIE in tokens:
+        tie_index = np.where(tokens == TIE)[0][0]
+        tokens = tokens[tie_index + 1 :]
+    for token in tokens:
+        if token < SPECIAL_LIMIT:
+            if token == END:
+                break
+            if token == NOTE_ON:
+                cur_on_off = MessageType.NOTE_ON
+            if token == NOTE_OFF:
+                cur_on_off = MessageType.NOTE_OFF
+        elif token < PROGRAM_LIMIT:
+            cur_program = token - SPECIAL_LIMIT
+        elif token < DRUM_LIMIT:
+            drum = token - PROGRAM_LIMIT
+            event_list.append(
+                Event(
+                    message_type=cur_on_off,
+                    tick=cur_tick,
+                    drum=drum,
                 )
-            elif token < self.note_limit:
-                note = token - self.drum_limit
-                event_list.append(
-                    Event(
-                        message_type=cur_on_off,
-                        tick=cur_tick,
-                        program=cur_program,
-                        note=note,
-                    )
+            )
+        elif token < NOTE_LIMIT:
+            note = token - DRUM_LIMIT
+            event_list.append(
+                Event(
+                    message_type=cur_on_off,
+                    tick=cur_tick,
+                    program=cur_program,
+                    note=note,
                 )
-            elif token < self.tick_limit:
-                tick = token - self.note_limit + 1
-                cur_tick += tick
-            else:
-                raise InvalidTokenError(token)
+            )
+        elif token < TICK_LIMIT:
+            tick = token - NOTE_LIMIT + 1
+            cur_tick += tick
+        else:
+            raise InvalidTokenError(token)
 
-        return event_list
+    return event_list
 
-    def determine_on_notes(self, tokens: ndarray) -> ndarray:
-        programs = np.zeros(NUM_PROGRAM, dtype=bool)
-        programs[
-            tokens[(tokens >= self.special_limit) & (tokens < self.program_limit)]
-            - self.special_limit
-        ] = True
-        on_notes = np.zeros((NUM_PROGRAM, NUM_NOTE), dtype=bool)
-        on_drums = np.zeros((NUM_DRUM,), dtype=bool)
-        on_drums[
-            tokens[(tokens >= self.program_limit) & (tokens < self.drum_limit)]
-            - self.program_limit
-        ] = True
 
-        program = 0
-        for token in tokens:
-            if self.special_limit <= token < self.program_limit:
-                program = token - self.special_limit
-            elif self.drum_limit <= token < self.note_limit:
-                note = token - self.drum_limit
-                on_notes[program, note] = ~on_notes[program, note]
+def augment_tokens(tokens: ndarray) -> ndarray:
+    note_tokens = tokens[(DRUM_LIMIT <= tokens) & (tokens < NOTE_LIMIT)]
+    note_shift = np.random.randint(-12, 12)
+    note_tokens = np.clip(note_tokens + note_shift, DRUM_LIMIT, NOTE_LIMIT - 1)
+    tokens[(DRUM_LIMIT <= tokens) & (tokens < NOTE_LIMIT)] = note_tokens
+    return tokens
 
-        result: List[int] = []
-        for program in np.where(programs)[0]:
-            result.append(self.program_to_token(program))
-            for note in np.where(on_notes[program])[0]:
-                result.append(self.note_to_token(note))
 
-        for drum in np.where(on_drums)[0]:
-            result.append(self.drum_to_token(drum))
+def determine_on_notes(tokens: ndarray) -> ndarray:
+    programs = np.zeros(NUM_PROGRAM, dtype=bool)
+    programs[tokens[(tokens >= SPECIAL_LIMIT) & (tokens < PROGRAM_LIMIT)] - SPECIAL_LIMIT] = True
+    on_notes = np.zeros((NUM_PROGRAM, NUM_NOTE), dtype=bool)
+    on_drums = np.zeros((NUM_DRUM,), dtype=bool)
+    on_drums[tokens[(tokens >= PROGRAM_LIMIT) & (tokens < DRUM_LIMIT)] - PROGRAM_LIMIT] = True
 
-        result.append(self.tie)
+    program = 0
+    for token in tokens:
+        if SPECIAL_LIMIT <= token < PROGRAM_LIMIT:
+            program = token - SPECIAL_LIMIT
+        elif DRUM_LIMIT <= token < NOTE_LIMIT:
+            note = token - DRUM_LIMIT
+            on_notes[program, note] = ~on_notes[program, note]
 
-        return np.array(result, dtype=np.int64)
+    result: List[int] = []
+    for program in np.where(programs)[0]:
+        result.append(program_to_token(program))
+        for note in np.where(on_notes[program])[0]:
+            result.append(note_to_token(note))
+
+    for drum in np.where(on_drums)[0]:
+        result.append(drum_to_token(drum))
+
+    result.append(TIE)
+
+    return np.array(result, dtype=np.int64)
 
 
 def read_midi(midi_file: MidiFile) -> List[Event]:

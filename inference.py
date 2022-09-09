@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from config.config import CustomConfig
 from data.datamodule import MusicDataModule
-from data.utils import Tokenizer, write_midi
+from data.utils import tokens_to_events, tokens_to_string, write_midi
 from model.model import MusicModel
 
 
@@ -79,7 +79,6 @@ def main(cfg: DictConfig) -> None:
     else:
         raise NotImplementedError("No checkpoint specified")
 
-    tokenizer = Tokenizer()
     datamodule.prepare_data()
     datamodule.setup()
     dataloader = datamodule.test_dataloader()
@@ -89,22 +88,22 @@ def main(cfg: DictConfig) -> None:
         model.cuda()
         batch: Tensor = next(iter(dataloader))
         tokens = batch[0].numpy()
-        event_list = tokenizer.tokens_to_events(tokens)
+        event_list = tokens_to_events(tokens)
         midi_file = write_midi(event_list)
         midi_file.save(filename="input.mid")
         with open("input_tokens.txt", mode="w", encoding="utf-8") as file:
-            file.write(tokenizer.tokens_to_string(tokens))
+            file.write(tokens_to_string(tokens))
         data = batch[:1].cuda()
         for _ in tqdm(range(custom_cfg.data_len)):
             output = model(data)[0, :, -1]
             pred = top_p_sampling(output, prob=0.9).unsqueeze(dim=0)
             data = torch.cat([data, pred], dim=-1)
         tokens = data[0].detach().cpu().numpy()
-        event_list = tokenizer.tokens_to_events(tokens)
+        event_list = tokens_to_events(tokens)
         midi_file = write_midi(event_list)
         midi_file.save(filename="output.mid")
         with open("output_tokens.txt", mode="w", encoding="utf-8") as file:
-            file.write(tokenizer.tokens_to_string(tokens))
+            file.write(tokens_to_string(tokens))
 
 
 if __name__ == "__main__":
