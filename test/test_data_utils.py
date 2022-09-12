@@ -15,6 +15,7 @@ from config.config import (
     NUM_DRUM,
     NUM_NOTE,
     NUM_PROGRAM,
+    NUM_TICK,
     SPECIAL_LIMIT,
     CustomConfig,
 )
@@ -24,6 +25,7 @@ from data.utils import (
     events_to_tokens,
     read_midi,
     tokens_to_events,
+    type_to_token,
     write_midi,
 )
 
@@ -37,6 +39,37 @@ class TestDataUtils(unittest.TestCase):
         with open(file_path, mode="r", encoding="utf-8") as file:
             self.path_list = file.readlines()
         random.shuffle(self.path_list)
+        num_note_event = 10
+        num_drum_event = 10
+        num_total_event = 30
+        self.event_list = [Event(MessageType.NOTE_ON, 0)] * num_total_event
+        random_ticks = np.cumsum(np.random.randint(0, NUM_TICK, size=num_total_event))
+        random_notes = np.random.randint(0, NUM_NOTE, size=num_note_event)
+        random_programs = np.random.randint(0, NUM_PROGRAM, size=num_note_event)
+        random_drums = np.random.randint(0, NUM_DRUM, size=num_drum_event)
+        random_indices = np.random.permutation(num_total_event)
+        for i in range(num_note_event):
+            indices = random_indices[i * 2 : i * 2 + 2]
+            on_indice, off_indice = min(indices), max(indices)
+            self.event_list[on_indice] = Event(
+                message_type=MessageType.NOTE_ON,
+                tick=random_ticks[random_indices[on_indice]],
+                note=random_notes[i],
+                program=random_programs[i],
+            )
+            self.event_list[off_indice] = Event(
+                message_type=MessageType.NOTE_OFF,
+                tick=random_ticks[random_indices[off_indice]],
+                note=random_notes[i],
+                program=random_programs[i],
+            )
+        for i in range(num_drum_event):
+            self.event_list[random_indices[i]] = Event(
+                message_type=MessageType.NOTE_ON,
+                tick=random_ticks[random_indices[i]],
+                drum=random_drums[i],
+            )
+        random.shuffle(self.event_list)
 
     def test_read_midi(self):
         self.assertTrue(self.path_list)

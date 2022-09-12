@@ -1,7 +1,18 @@
 import torch
 from torch import Tensor, nn
 
-from config.config import NUM_DRUM, NUM_NOTE, NUM_PROGRAM, NUM_SPECIAL, NUM_TICK
+from config.config import (
+    DRUM_LIMIT,
+    NOTE_LIMIT,
+    NUM_DRUM,
+    NUM_NOTE,
+    NUM_PROGRAM,
+    NUM_SPECIAL,
+    NUM_TICK,
+    PROGRAM_LIMIT,
+    SPECIAL_LIMIT,
+    TICK_LIMIT,
+)
 
 
 class SimplifyClass(nn.Module):
@@ -20,22 +31,14 @@ class SimplifyClass(nn.Module):
 
 
 class SimplifyScore(nn.Module):
-    def __init__(self) -> None:
-        super().__init__()
-        self.special_limit = NUM_SPECIAL
-        self.program_limit = self.special_limit + NUM_PROGRAM
-        self.drum_limit = self.program_limit + NUM_DRUM
-        self.note_limit = self.drum_limit + NUM_NOTE
-        self.tick_limit = self.note_limit + NUM_TICK
-
     def forward(self, data: Tensor):
         return torch.cat(
             [
-                data[:, : self.special_limit].sum(dim=1, keepdim=True),
-                data[:, self.special_limit : self.program_limit].sum(dim=1, keepdim=True),
-                data[:, self.program_limit : self.drum_limit].sum(dim=1, keepdim=True),
-                data[:, self.drum_limit : self.note_limit].sum(dim=1, keepdim=True),
-                data[:, self.note_limit : self.tick_limit].sum(dim=1, keepdim=True),
+                data[:, :SPECIAL_LIMIT].sum(dim=1, keepdim=True),
+                data[:, SPECIAL_LIMIT:PROGRAM_LIMIT].sum(dim=1, keepdim=True),
+                data[:, PROGRAM_LIMIT:DRUM_LIMIT].sum(dim=1, keepdim=True),
+                data[:, DRUM_LIMIT:NOTE_LIMIT].sum(dim=1, keepdim=True),
+                data[:, NOTE_LIMIT:TICK_LIMIT].sum(dim=1, keepdim=True),
             ],
             dim=1,
         )

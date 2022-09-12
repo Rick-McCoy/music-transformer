@@ -105,7 +105,7 @@ class InvalidTokenError(Exception):
 class Event:
     def __init__(
         self,
-        message_type: Optional[MessageType],
+        message_type: MessageType,
         tick: int,
         program: Optional[int] = None,
         note: Optional[int] = None,
